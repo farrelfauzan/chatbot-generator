@@ -1,0 +1,65 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "api",
+  "projectType": "application",
+  "sourceRoot": "apps/api/src",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/api",
+        "command": "pnpm start:dev"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/api",
+        "command": "pnpm build"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/api",
+        "command": "pnpm lint"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/api",
+        "command": "pnpm test"
+      }
+    },
+    "prisma:generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "pnpm prisma:generate"
+      }
+    },
+    "prisma:migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "pnpm prisma:migrate:dev --name {args.name}"
+      }
+    },
+    "prisma:seed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "pnpm prisma:seed"
+      }
+    },
+    "prisma:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "pnpm prisma migrate reset --force"
+      }
+    }
+  },
+  "tags": ["scope:backend", "type:app"]
+}
