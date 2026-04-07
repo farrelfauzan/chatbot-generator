@@ -1,0 +1,1396 @@
+openapi: '3.0.3'
+info:
+  title: Chatbot Generator API
+  description: |
+    WhatsApp LLM Sales Chatbot platform API.
+    Manages customers, conversations, products, orders, invoices, payments,
+    FAQ entries, prompt templates, and LLM interactions.
+  version: 0.1.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+
+tags:
+  - name: Health
+    description: Health check
+  - name: Customers
+    description: Customer management
+  - name: Conversations
+    description: Conversation management
+  - name: Products
+    description: Product catalog management
+  - name: Orders
+    description: Order management
+  - name: Invoices
+    description: Invoice management
+  - name: Payments
+    description: Payment management
+  - name: FAQ
+    description: FAQ entry management
+  - name: PromptTemplates
+    description: LLM prompt template management
+  - name: LLM
+    description: LLM chat and configuration
+  - name: Webhooks
+    description: GoWa webhook endpoints
+
+paths:
+  /:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: OK
+
+  # ─── Customers ────────────────────────────────────
+
+  /customers:
+    get:
+      tags: [Customers]
+      summary: List all customers
+      operationId: listCustomers
+      responses:
+        '200':
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerResponse'
+    post:
+      tags: [Customers]
+      summary: Create a customer
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomer'
+      responses:
+        '201':
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+
+  /customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Get customer by ID
+      operationId: getCustomer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Customers]
+      summary: Update a customer
+      operationId: updateCustomer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomer'
+      responses:
+        '200':
+          description: Customer updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+
+  # ─── Conversations ────────────────────────────────
+
+  /conversations:
+    get:
+      tags: [Conversations]
+      summary: List conversations
+      operationId: listConversations
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ConversationStatus'
+        - name: customerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationResponse'
+
+  /conversations/{id}:
+    get:
+      tags: [Conversations]
+      summary: Get conversation by ID
+      operationId: getConversation
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Conversation details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Conversations]
+      summary: Update a conversation
+      operationId: updateConversation
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConversation'
+      responses:
+        '200':
+          description: Conversation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+
+  # ─── Products ─────────────────────────────────────
+
+  /products:
+    get:
+      tags: [Products]
+      summary: List products
+      operationId: listProducts
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductResponse'
+    post:
+      tags: [Products]
+      summary: Create a product
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProduct'
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      operationId: getProduct
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Products]
+      summary: Update a product
+      operationId: updateProduct
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProduct'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+
+  # ─── Orders ───────────────────────────────────────
+
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      operationId: listOrders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - name: customerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderResponse'
+    post:
+      tags: [Orders]
+      summary: Create an order
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order by ID
+      operationId: getOrder
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /orders/{id}/status:
+    patch:
+      tags: [Orders]
+      summary: Update order status
+      operationId: updateOrderStatus
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatus'
+      responses:
+        '200':
+          description: Order status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+
+  # ─── Invoices ─────────────────────────────────────
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices
+      operationId: listInvoices
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InvoiceStatus'
+        - name: orderId
+          in: query
+          schema:
+            type: string
+        - name: customerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvoiceResponse'
+
+  /invoices/{id}:
+    get:
+      tags: [Invoices]
+      summary: Get invoice by ID
+      operationId: getInvoice
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Invoice details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── Payments ─────────────────────────────────────
+
+  /payments:
+    get:
+      tags: [Payments]
+      summary: List payments
+      operationId: listPayments
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentStatus'
+        - name: orderId
+          in: query
+          schema:
+            type: string
+        - name: customerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentResponse'
+    post:
+      tags: [Payments]
+      summary: Create a payment
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayment'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+
+  /payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Get payment by ID
+      operationId: getPayment
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payments/{id}/verify:
+    patch:
+      tags: [Payments]
+      summary: Verify or reject a payment
+      operationId: verifyPayment
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPayment'
+      responses:
+        '200':
+          description: Payment verified/rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+
+  # ─── FAQ ──────────────────────────────────────────
+
+  /faq:
+    get:
+      tags: [FAQ]
+      summary: List FAQ entries
+      operationId: listFaq
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of FAQ entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FaqResponse'
+    post:
+      tags: [FAQ]
+      summary: Create a FAQ entry
+      operationId: createFaq
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFaq'
+      responses:
+        '201':
+          description: FAQ entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqResponse'
+
+  /faq/{id}:
+    get:
+      tags: [FAQ]
+      summary: Get FAQ entry by ID
+      operationId: getFaq
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: FAQ entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [FAQ]
+      summary: Update a FAQ entry
+      operationId: updateFaq
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFaq'
+      responses:
+        '200':
+          description: FAQ entry updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqResponse'
+    delete:
+      tags: [FAQ]
+      summary: Delete a FAQ entry
+      operationId: deleteFaq
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: FAQ entry deleted
+
+  # ─── Prompt Templates ────────────────────────────
+
+  /prompt-templates:
+    get:
+      tags: [PromptTemplates]
+      summary: List prompt templates
+      operationId: listPromptTemplates
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/PromptCategory'
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of prompt templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PromptTemplateResponse'
+    post:
+      tags: [PromptTemplates]
+      summary: Create a prompt template
+      operationId: createPromptTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePromptTemplate'
+      responses:
+        '201':
+          description: Prompt template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptTemplateResponse'
+
+  /prompt-templates/{id}:
+    get:
+      tags: [PromptTemplates]
+      summary: Get prompt template by ID
+      operationId: getPromptTemplate
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Prompt template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptTemplateResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [PromptTemplates]
+      summary: Update a prompt template
+      operationId: updatePromptTemplate
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromptTemplate'
+      responses:
+        '200':
+          description: Prompt template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptTemplateResponse'
+    delete:
+      tags: [PromptTemplates]
+      summary: Delete a prompt template
+      operationId: deletePromptTemplate
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Prompt template deleted
+
+  /prompt-templates/slug/{slug}:
+    get:
+      tags: [PromptTemplates]
+      summary: Get prompt template by slug
+      operationId: getPromptTemplateBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Prompt template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptTemplateResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── LLM ──────────────────────────────────────────
+
+  /llm/config:
+    get:
+      tags: [LLM]
+      summary: Get LLM configuration
+      operationId: getLlmConfig
+      responses:
+        '200':
+          description: LLM config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmConfigResponse'
+
+  /llm/chat:
+    post:
+      tags: [LLM]
+      summary: Send a chat message to LLM
+      operationId: chatWithLlm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletion'
+      responses:
+        '200':
+          description: LLM response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+
+  # ─── Webhooks ─────────────────────────────────────
+
+  /webhooks/gowa/messages:
+    post:
+      tags: [Webhooks]
+      summary: Receive inbound WhatsApp message from GoWa
+      operationId: gowaInboundMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GowaInboundMessage'
+      responses:
+        '200':
+          description: Message processed
+
+  /webhooks/gowa/status:
+    post:
+      tags: [Webhooks]
+      summary: Receive message status update from GoWa
+      operationId: gowaStatusUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GowaStatusUpdate'
+      responses:
+        '200':
+          description: Status update processed
+
+# ─── Components ───────────────────────────────────────
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 404
+              message:
+                type: string
+                example: Not found
+
+  schemas:
+    # ─── Enums ──────────────────────────────────────
+
+    ConversationStage:
+      type: string
+      enum:
+        [
+          greeting,
+          discovery,
+          recommendation,
+          pricing,
+          order_confirm,
+          invoiced,
+          payment_pending,
+          paid,
+          fulfilled,
+        ]
+
+    ConversationStatus:
+      type: string
+      enum: [active, closed, escalated]
+
+    ChatIntent:
+      type: string
+      enum:
+        [
+          greeting,
+          browse_catalog,
+          ask_stock,
+          ask_price,
+          ask_product_detail,
+          ask_recommendation,
+          compare_products,
+          calculate_price,
+          objection_or_hesitation,
+          create_order,
+          request_invoice,
+          confirm_payment,
+          ask_order_status,
+          request_human_help,
+          general_qa,
+        ]
+
+    OrderStatus:
+      type: string
+      enum: [draft, confirmed, paid, processing, shipped, fulfilled, cancelled]
+
+    InvoiceStatus:
+      type: string
+      enum: [issued, paid, cancelled, overdue]
+
+    PaymentStatus:
+      type: string
+      enum: [pending, verified, rejected]
+
+    PromptCategory:
+      type: string
+      enum:
+        [
+          intent_classification,
+          grounded_reply,
+          requirement_extraction,
+          recommendation_explanation,
+          general,
+        ]
+
+    # ─── Customer ───────────────────────────────────
+
+    CreateCustomer:
+      type: object
+      required: [phoneNumber]
+      properties:
+        phoneNumber:
+          type: string
+          minLength: 10
+          maxLength: 20
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        notes:
+          type: string
+
+    UpdateCustomer:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        notes:
+          type: string
+
+    CustomerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        phoneNumber:
+          type: string
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ─── Conversation ───────────────────────────────
+
+    UpdateConversation:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ConversationStatus'
+        stage:
+          $ref: '#/components/schemas/ConversationStage'
+        assignedAdminId:
+          type: string
+          nullable: true
+
+    ConversationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ConversationStatus'
+        stage:
+          $ref: '#/components/schemas/ConversationStage'
+        lastInboundAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastOutboundAt:
+          type: string
+          format: date-time
+          nullable: true
+        assignedAdminId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ─── Product ────────────────────────────────────
+
+    CreateProduct:
+      type: object
+      required: [sku, name, price]
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        stockQty:
+          type: integer
+          minimum: 0
+          default: 0
+        imageUrl:
+          type: string
+          format: uri
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateProduct:
+      type: object
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+        stockQty:
+          type: integer
+        imageUrl:
+          type: string
+          format: uri
+        isActive:
+          type: boolean
+
+    ProductResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        price:
+          type: number
+        stockQty:
+          type: integer
+        imageUrl:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ─── Order ──────────────────────────────────────
+
+    CreateOrderItem:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+
+    CreateOrder:
+      type: object
+      required: [customerId, items]
+      properties:
+        customerId:
+          type: string
+        conversationId:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateOrderItem'
+        discountAmount:
+          type: number
+          minimum: 0
+          default: 0
+        shippingAmount:
+          type: number
+          minimum: 0
+          default: 0
+        taxAmount:
+          type: number
+          minimum: 0
+          default: 0
+
+    UpdateOrderStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+
+    OrderItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        productId:
+          type: string
+        productNameSnapshot:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        lineTotal:
+          type: number
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+        customerId:
+          type: string
+        conversationId:
+          type: string
+          nullable: true
+        quoteId:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        subtotal:
+          type: number
+        discountAmount:
+          type: number
+        shippingAmount:
+          type: number
+        taxAmount:
+          type: number
+        totalAmount:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemResponse'
+
+    # ─── Invoice ────────────────────────────────────
+
+    InvoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        invoiceNumber:
+          type: string
+        orderId:
+          type: string
+        customerId:
+          type: string
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+        issuedAt:
+          type: string
+          format: date-time
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        subtotal:
+          type: number
+        totalAmount:
+          type: number
+        fileUrl:
+          type: string
+          nullable: true
+
+    # ─── Payment ────────────────────────────────────
+
+    CreatePayment:
+      type: object
+      required: [orderId, customerId, amount]
+      properties:
+        orderId:
+          type: string
+        invoiceId:
+          type: string
+        customerId:
+          type: string
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        paymentMethod:
+          type: string
+        referenceNumber:
+          type: string
+        proofUrl:
+          type: string
+          format: uri
+
+    VerifyPayment:
+      type: object
+      required: [status, verifiedBy]
+      properties:
+        status:
+          type: string
+          enum: [verified, rejected]
+        verifiedBy:
+          type: string
+
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        invoiceId:
+          type: string
+          nullable: true
+        customerId:
+          type: string
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+          nullable: true
+        referenceNumber:
+          type: string
+          nullable: true
+        proofUrl:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        verifiedBy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── FAQ ────────────────────────────────────────
+
+    CreateFaq:
+      type: object
+      required: [question, answer]
+      properties:
+        question:
+          type: string
+          minLength: 1
+        answer:
+          type: string
+          minLength: 1
+        category:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateFaq:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+        category:
+          type: string
+        isActive:
+          type: boolean
+
+    FaqResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        category:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+
+    # ─── Prompt Template ────────────────────────────
+
+    CreatePromptTemplate:
+      type: object
+      required: [slug, name, category, content]
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9_-]+$'
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/PromptCategory'
+        content:
+          type: string
+          minLength: 1
+        variables:
+          type: array
+          items:
+            type: string
+          default: []
+        isActive:
+          type: boolean
+          default: true
+
+    UpdatePromptTemplate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/PromptCategory'
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    PromptTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ─── LLM ───────────────────────────────────────
+
+    ChatCompletion:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        content:
+          type: string
+
+    LlmConfigResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+        baseUrl:
+          type: string
+        model:
+          type: string
+        ready:
+          type: boolean
+
+    # ─── Webhooks ───────────────────────────────────
+
+    GowaInboundMessage:
+      type: object
+      required: [phone, message]
+      properties:
+        phone:
+          type: string
+        message:
+          type: string
+        messageId:
+          type: string
+        timestamp:
+          type: number
+
+    GowaStatusUpdate:
+      type: object
+      required: [messageId, status]
+      properties:
+        messageId:
+          type: string
+        status:
+          type: string
+        timestamp:
+          type: number
