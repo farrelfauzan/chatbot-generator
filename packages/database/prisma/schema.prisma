@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Core ────────────────────────────────────────────
+
+model Customer {
+  id            String         @id @default(cuid())
+  phoneNumber   String         @unique
+  name          String?
+  email         String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+  orders        Order[]
+}
+
+model Conversation {
+  id              String    @id @default(cuid())
+  customerId      String
+  status          String    @default("active")
+  stage           String    @default("greeting")
+  lastInboundAt   DateTime?
+  lastOutboundAt  DateTime?
+  assignedAdminId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  messages        Message[]
+}
+
+model Message {
+  id               String       @id @default(cuid())
+  conversationId   String
+  direction        MessageFlow
+  content          String
+  messageType      String       @default("text")
+  rawPayload       Json?
+  gatewayMessageId String?
+  createdAt        DateTime     @default(now())
+  conversation     Conversation @relation(fields: [conversationId], references: [id])
+}
+
+// ─── Catalog ─────────────────────────────────────────
+
+model Product {
+  id          String           @id @default(cuid())
+  sku         String           @unique
+  name        String
+  description String?
+  category    String?
+  price       Decimal          @db.Decimal(12, 2)
+  stockQty    Int              @default(0)
+  imageUrl    String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  variants    ProductVariant[]
+  orderItems  OrderItem[]
+}
+
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  name      String
+  sku       String  @unique
+  price     Decimal @db.Decimal(12, 2)
+  stockQty  Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Commerce ────────────────────────────────────────
+
+model Quote {
+  id             String   @id @default(cuid())
+  customerId     String
+  conversationId String?
+  subtotal       Decimal  @db.Decimal(12, 2)
+  discountAmount Decimal  @default(0) @db.Decimal(12, 2)
+  shippingAmount Decimal  @default(0) @db.Decimal(12, 2)
+  taxAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal  @db.Decimal(12, 2)
+  status         String   @default("draft")
+  createdAt      DateTime @default(now())
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  orderNumber    String      @unique
+  customerId     String
+  conversationId String?
+  quoteId        String?
+  status         String      @default("draft")
+  subtotal       Decimal     @db.Decimal(12, 2)
+  discountAmount Decimal     @default(0) @db.Decimal(12, 2)
+  shippingAmount Decimal     @default(0) @db.Decimal(12, 2)
+  taxAmount      Decimal     @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal     @db.Decimal(12, 2)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  customer       Customer    @relation(fields: [customerId], references: [id])
+  items          OrderItem[]
+  invoices       Invoice[]
+  payments       Payment[]
+}
+
+model OrderItem {
+  id                  String  @id @default(cuid())
+  orderId             String
+  productId           String
+  productNameSnapshot String
+  quantity            Int
+  unitPrice           Decimal @db.Decimal(12, 2)
+  lineTotal           Decimal @db.Decimal(12, 2)
+  order               Order   @relation(fields: [orderId], references: [id])
+  product             Product @relation(fields: [productId], references: [id])
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  invoiceNumber String    @unique
+  orderId       String
+  customerId    String
+  status        String    @default("issued")
+  issuedAt      DateTime  @default(now())
+  dueAt         DateTime?
+  subtotal      Decimal   @db.Decimal(12, 2)
+  totalAmount   Decimal   @db.Decimal(12, 2)
+  fileUrl       String?
+  order         Order     @relation(fields: [orderId], references: [id])
+  payments      Payment[]
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  orderId         String
+  invoiceId       String?
+  customerId      String
+  amount          Decimal   @db.Decimal(12, 2)
+  paymentMethod   String?
+  referenceNumber String?
+  proofUrl        String?
+  status          String    @default("pending")
+  paidAt          DateTime?
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  createdAt       DateTime  @default(now())
+  order           Order     @relation(fields: [orderId], references: [id])
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+}
+
+// ─── AI & Knowledge ──────────────────────────────────
+
+model RecommendationSession {
+  id                String   @id @default(cuid())
+  customerId        String
+  conversationId    String?
+  needSummary       String?
+  budget            Decimal? @db.Decimal(12, 2)
+  urgency           String?
+  preferredCategory String?
+  recommendedResult Json?
+  createdAt         DateTime @default(now())
+}
+
+model FaqEntry {
+  id       String  @id @default(cuid())
+  question String
+  answer   String
+  category String?
+  isActive Boolean @default(true)
+}
+
+model LlmLog {
+  id              String   @id @default(cuid())
+  conversationId  String?
+  messageId       String?
+  model           String
+  promptSummary   String
+  responseSummary String
+  createdAt       DateTime @default(now())
+}
+
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  category    String
+  content     String
+  variables   Json     @default("[]")
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+model BotConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Enums ───────────────────────────────────────────
+
+enum MessageFlow {
+  inbound
+  outbound
+}
