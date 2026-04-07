@@ -1,96 +1,57 @@
-# ChatbotGenerator
+# Chatbot Generator Monorepo
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Nx monorepo for a WhatsApp commerce chatbot platform built with:
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+- NestJS + Fastify backend
+- TanStack Start dashboard
+- GoWa gateway integration layer
+- PostgreSQL + Prisma
+- OpenAI-ready orchestration
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## Workspace Layout
 
-## Run tasks
+- `apps/api`: NestJS Fastify backend
+- `apps/dashboard`: TanStack Start dashboard
+- `packages/database`: Prisma v7 schema, config, generated client output, and database tooling
+- `packages/shared-types`: shared app contracts and types
 
-To run tasks with Nx use:
+## Getting Started
 
-```sh
-npx nx <target> <project-name>
-```
+1. Install dependencies with `pnpm install`
+2. Copy `packages/database/.env.example` to `packages/database/.env`
+3. Copy `apps/api/.env.example` to `apps/api/.env` and add your LLM credentials
+4. Copy `apps/dashboard/.env.example` to `apps/dashboard/.env` if needed
+5. Run `pnpm prisma:generate`
+6. Start the API with `pnpm dev:api`
+7. Start the dashboard with `pnpm dev:dashboard`
 
-For example:
+## Sumopod LLM
 
-```sh
-npx nx build myproject
-```
+The backend is configured for an OpenAI-compatible provider through these API env vars:
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+- `LLM_PROVIDER`
+- `LLM_BASE_URL`
+- `LLM_MODEL`
+- `LLM_API_KEY`
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+The default setup targets Sumopod with `gemini/gemini-2.5-flash-lite`.
 
-## Add new projects
+For a quick backend test:
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+- `GET /llm/config`
+- `POST /llm/chat` with `{ "message": "Say hello in a creative way" }`
 
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
-```
+## Prisma v7 Notes
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+- The workspace uses `prisma-client`, not the deprecated `prisma-client-js` generator.
+- Generated client code is written to `packages/database/generated/prisma`.
+- Prisma CLI configuration lives in `packages/database/prisma.config.ts`.
+- Prisma v7 no longer auto-loads `.env` files for CLI usage, so `prisma.config.ts` explicitly imports `dotenv/config`.
+- PostgreSQL connections use `@prisma/adapter-pg`.
 
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
+## Nx Targets
 
-# Generate a library
-npx nx g @nx/react:lib some-lib
-```
-
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Set up CI!
-
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
-```
-
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- `pnpm nx dev api`
+- `pnpm nx build api`
+- `pnpm nx dev dashboard`
+- `pnpm nx build dashboard`

@@ -1,13 +1,43 @@
 {
-  "name": "@chatbot-generator/source",
-  "version": "0.0.0",
+  "name": "@chatbot-generator/workspace",
+  "version": "0.1.0",
   "license": "MIT",
-  "scripts": {},
   "private": true,
-  "dependencies": {},
+  "packageManager": "pnpm@10.26.0",
+  "scripts": {
+    "nx": "nx",
+    "dev:api": "pnpm --filter @chatbot-generator/api start:dev",
+    "dev:dashboard": "pnpm --filter chatbot-dashboard dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "prisma:generate": "pnpm --filter @chatbot-generator/database prisma generate",
+    "prisma:migrate:dev": "pnpm --filter @chatbot-generator/database prisma migrate dev"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "esbuild",
+      "lightningcss",
+      "prisma"
+    ],
+    "ignoredBuiltDependencies": [
+      "@scarf/scarf",
+      "@swc/core",
+      "nx"
+    ]
+  },
   "devDependencies": {
     "@nx/js": "22.6.4",
+    "@nx/nest": "22.6.4",
+    "@nx/node": "22.6.4",
+    "@nx/react": "22.6.4",
     "@nx/workspace": "22.6.4",
-    "nx": "22.6.4"
+    "eslint": "^10.2.0",
+    "nx": "22.6.4",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "5.9.3"
   }
 }
