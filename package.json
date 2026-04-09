@@ -18,6 +18,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@prisma/client",
+      "bcrypt",
       "esbuild",
       "lightningcss",
       "prisma"

@@ -3,6 +3,16 @@ import 'dotenv/config';
 export const appConfig = {
   port: Number(process.env.PORT ?? 3001),
   appName: process.env.APP_NAME ?? 'chatbot-api',
+  jwt: {
+    secret: process.env.JWT_SECRET ?? 'change-me-in-production',
+    expiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
+  },
+  redis: {
+    url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  },
+  session: {
+    ttlMinutes: Number(process.env.SESSION_TTL_MINUTES ?? 30),
+  },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'sumopod',
     baseUrl: process.env.LLM_BASE_URL ?? 'https://ai.sumopod.com/v1',

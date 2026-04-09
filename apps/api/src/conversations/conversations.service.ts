@@ -32,6 +32,10 @@ export class ConversationsService {
     return this.conversationRepo.create(customerId);
   }
 
+  async create(customerId: string) {
+    return this.conversationRepo.create(customerId);
+  }
+
   async update(id: string, data: UpdateConversationInput) {
     return this.conversationRepo.update(id, data);
   }

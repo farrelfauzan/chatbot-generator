@@ -12,6 +12,8 @@ import { OrdersModule } from '../orders/orders.module';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { GowaModule } from '../gowa/gowa.module';
+import { ChatSessionModule } from '../chat-session/chat-session.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { GowaModule } from '../gowa/gowa.module';
     InvoicesModule,
     PaymentsModule,
     GowaModule,
+    ChatSessionModule,
+    SettingsModule,
   ],
   controllers: [ConversationsController],
   providers: [

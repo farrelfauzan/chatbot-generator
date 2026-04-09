@@ -18,13 +18,21 @@ import { OrdersModule } from './orders/orders.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PromptTemplateModule } from './prompt-templates/prompt-template.module';
+import { AuthModule } from './auth/auth.module';
+import { SettingsModule } from './settings/settings.module';
+import { RedisModule } from './redis/redis.module';
+import { ChatSessionModule } from './chat-session/chat-session.module';
 
 @Module({
   imports: [
     DatabaseModule,
+    RedisModule,
     PromptTemplateModule,
     LlmModule,
     GowaModule,
+    AuthModule,
+    SettingsModule,
+    ChatSessionModule,
     CustomersModule,
     MessagesModule,
     IntentModule,
