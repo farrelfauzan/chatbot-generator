@@ -1,10 +1,81 @@
 import "dotenv/config";
 import { createPrismaClient } from "../src/client";
+import { hashSync } from "bcrypt";
 
 const prisma = createPrismaClient();
 
 async function main() {
   console.log("🌱 Seeding database...");
+
+  // ─── Admin Account ─────────────────────────────────
+
+  const adminEmail = "admin@chatbot.com";
+  await prisma.admin.upsert({
+    where: { email: adminEmail },
+    create: {
+      email: adminEmail,
+      passwordHash: hashSync("admin123", 10),
+      name: "Admin",
+      role: "admin",
+      isActive: true,
+    },
+    update: {},
+  });
+
+  console.log(`  ✅ Admin seeded (${adminEmail} / admin123)`);
+
+  // ─── Company Info ──────────────────────────────────
+
+  const companyInfoData = [
+    { key: "name", value: "Toko Komputer Jaya" },
+    { key: "phone", value: "6281381035295" },
+    { key: "email", value: "info@tokokomputerjaya.com" },
+    { key: "address", value: "Jl. Mangga Dua Raya No. 10, Jakarta Pusat" },
+    {
+      key: "description",
+      value: "Toko komputer & laptop terpercaya sejak 2010",
+    },
+  ];
+
+  for (const info of companyInfoData) {
+    await prisma.companyInfo.upsert({
+      where: { key: info.key },
+      create: info,
+      update: { value: info.value },
+    });
+  }
+
+  console.log(`  ✅ ${companyInfoData.length} company info entries seeded`);
+
+  // ─── Bank Accounts ─────────────────────────────────
+
+  const bankAccountsData = [
+    {
+      bankName: "BCA",
+      accountNumber: "1234567890",
+      accountHolder: "PT Toko Komputer Jaya",
+      isActive: true,
+      isDefault: true,
+    },
+    {
+      bankName: "Mandiri",
+      accountNumber: "0987654321",
+      accountHolder: "PT Toko Komputer Jaya",
+      isActive: true,
+      isDefault: false,
+    },
+  ];
+
+  for (const bank of bankAccountsData) {
+    const existing = await prisma.bankAccount.findFirst({
+      where: { bankName: bank.bankName, accountNumber: bank.accountNumber },
+    });
+    if (!existing) {
+      await prisma.bankAccount.create({ data: bank });
+    }
+  }
+
+  console.log(`  ✅ ${bankAccountsData.length} bank accounts seeded`);
 
   // ─── Categories ────────────────────────────────────
 
