@@ -161,3 +161,62 @@ export const faqApi = {
     apiClient.patch<never, FaqEntry>(`/faq/${encodeURIComponent(id)}`, data),
   delete: (id: string) => apiClient.delete(`/faq/${encodeURIComponent(id)}`),
 };
+
+// ─── Auth ─────────────────────────────────────────────
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  admin: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+}
+
+export const authApi = {
+  login: (data: LoginRequest) =>
+    apiClient.post<never, LoginResponse>("/auth/login", data),
+  getProfile: () =>
+    apiClient.get<
+      never,
+      { id: string; email: string; name: string; role: string }
+    >("/auth/profile"),
+};
+
+// ─── Settings ─────────────────────────────────────────
+export interface CompanyInfo {
+  [key: string]: string;
+}
+
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  isActive: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const settingsApi = {
+  getCompanyInfo: () => apiClient.get<never, CompanyInfo>("/settings/company"),
+  updateCompanyInfo: (data: CompanyInfo) =>
+    apiClient.put<never, CompanyInfo>("/settings/company", data),
+  getBankAccounts: () =>
+    apiClient.get<never, BankAccount[]>("/settings/bank-accounts"),
+  createBankAccount: (data: Partial<BankAccount>) =>
+    apiClient.post<never, BankAccount>("/settings/bank-accounts", data),
+  updateBankAccount: (id: string, data: Partial<BankAccount>) =>
+    apiClient.patch<never, BankAccount>(
+      `/settings/bank-accounts/${encodeURIComponent(id)}`,
+      data,
+    ),
+  deleteBankAccount: (id: string) =>
+    apiClient.delete(`/settings/bank-accounts/${encodeURIComponent(id)}`),
+};

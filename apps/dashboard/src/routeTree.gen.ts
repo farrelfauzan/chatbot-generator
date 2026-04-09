@@ -9,18 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardProductsRouteImport } from './routes/dashboard/products'
 import { Route as DashboardFaqRouteImport } from './routes/dashboard/faq'
 import { Route as DashboardCustomersRouteImport } from './routes/dashboard/customers'
 import { Route as DashboardCategoriesRouteImport } from './routes/dashboard/categories'
+import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings/index'
 import { Route as DashboardOrdersIndexRouteImport } from './routes/dashboard/orders/index'
 import { Route as DashboardConversationsIndexRouteImport } from './routes/dashboard/conversations/index'
+import { Route as DashboardSettingsBankAccountsRouteImport } from './routes/dashboard/settings/bank-accounts'
 import { Route as DashboardOrdersOrderIdRouteImport } from './routes/dashboard/orders/$orderId'
 import { Route as DashboardConversationsConversationIdRouteImport } from './routes/dashboard/conversations/$conversationId'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -34,6 +43,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardProductsRoute = DashboardProductsRouteImport.update({
@@ -56,6 +70,11 @@ const DashboardCategoriesRoute = DashboardCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardSettingsIndexRoute = DashboardSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardSettingsRoute,
+} as any)
 const DashboardOrdersIndexRoute = DashboardOrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
@@ -66,6 +85,12 @@ const DashboardConversationsIndexRoute =
     id: '/conversations/',
     path: '/conversations/',
     getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardSettingsBankAccountsRoute =
+  DashboardSettingsBankAccountsRouteImport.update({
+    id: '/bank-accounts',
+    path: '/bank-accounts',
+    getParentRoute: () => DashboardSettingsRoute,
   } as any)
 const DashboardOrdersOrderIdRoute = DashboardOrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
@@ -82,18 +107,23 @@ const DashboardConversationsConversationIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/products': typeof DashboardProductsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/conversations/$conversationId': typeof DashboardConversationsConversationIdRoute
   '/dashboard/orders/$orderId': typeof DashboardOrdersOrderIdRoute
+  '/dashboard/settings/bank-accounts': typeof DashboardSettingsBankAccountsRoute
   '/dashboard/conversations/': typeof DashboardConversationsIndexRoute
   '/dashboard/orders/': typeof DashboardOrdersIndexRoute
+  '/dashboard/settings/': typeof DashboardSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/faq': typeof DashboardFaqRoute
@@ -101,40 +131,51 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/dashboard/conversations/$conversationId': typeof DashboardConversationsConversationIdRoute
   '/dashboard/orders/$orderId': typeof DashboardOrdersOrderIdRoute
+  '/dashboard/settings/bank-accounts': typeof DashboardSettingsBankAccountsRoute
   '/dashboard/conversations': typeof DashboardConversationsIndexRoute
   '/dashboard/orders': typeof DashboardOrdersIndexRoute
+  '/dashboard/settings': typeof DashboardSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
   '/dashboard/categories': typeof DashboardCategoriesRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/faq': typeof DashboardFaqRoute
   '/dashboard/products': typeof DashboardProductsRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/conversations/$conversationId': typeof DashboardConversationsConversationIdRoute
   '/dashboard/orders/$orderId': typeof DashboardOrdersOrderIdRoute
+  '/dashboard/settings/bank-accounts': typeof DashboardSettingsBankAccountsRoute
   '/dashboard/conversations/': typeof DashboardConversationsIndexRoute
   '/dashboard/orders/': typeof DashboardOrdersIndexRoute
+  '/dashboard/settings/': typeof DashboardSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/login'
     | '/dashboard/categories'
     | '/dashboard/customers'
     | '/dashboard/faq'
     | '/dashboard/products'
+    | '/dashboard/settings'
     | '/dashboard/'
     | '/dashboard/conversations/$conversationId'
     | '/dashboard/orders/$orderId'
+    | '/dashboard/settings/bank-accounts'
     | '/dashboard/conversations/'
     | '/dashboard/orders/'
+    | '/dashboard/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/dashboard/categories'
     | '/dashboard/customers'
     | '/dashboard/faq'
@@ -142,30 +183,44 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/dashboard/conversations/$conversationId'
     | '/dashboard/orders/$orderId'
+    | '/dashboard/settings/bank-accounts'
     | '/dashboard/conversations'
     | '/dashboard/orders'
+    | '/dashboard/settings'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/login'
     | '/dashboard/categories'
     | '/dashboard/customers'
     | '/dashboard/faq'
     | '/dashboard/products'
+    | '/dashboard/settings'
     | '/dashboard/'
     | '/dashboard/conversations/$conversationId'
     | '/dashboard/orders/$orderId'
+    | '/dashboard/settings/bank-accounts'
     | '/dashboard/conversations/'
     | '/dashboard/orders/'
+    | '/dashboard/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -185,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/products': {
@@ -215,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCategoriesRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/settings/': {
+      id: '/dashboard/settings/'
+      path: '/'
+      fullPath: '/dashboard/settings/'
+      preLoaderRoute: typeof DashboardSettingsIndexRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
     '/dashboard/orders/': {
       id: '/dashboard/orders/'
       path: '/orders'
@@ -228,6 +297,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/conversations/'
       preLoaderRoute: typeof DashboardConversationsIndexRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings/bank-accounts': {
+      id: '/dashboard/settings/bank-accounts'
+      path: '/bank-accounts'
+      fullPath: '/dashboard/settings/bank-accounts'
+      preLoaderRoute: typeof DashboardSettingsBankAccountsRouteImport
+      parentRoute: typeof DashboardSettingsRoute
     }
     '/dashboard/orders/$orderId': {
       id: '/dashboard/orders/$orderId'
@@ -246,11 +322,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DashboardSettingsRouteChildren {
+  DashboardSettingsBankAccountsRoute: typeof DashboardSettingsBankAccountsRoute
+  DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
+}
+
+const DashboardSettingsRouteChildren: DashboardSettingsRouteChildren = {
+  DashboardSettingsBankAccountsRoute: DashboardSettingsBankAccountsRoute,
+  DashboardSettingsIndexRoute: DashboardSettingsIndexRoute,
+}
+
+const DashboardSettingsRouteWithChildren =
+  DashboardSettingsRoute._addFileChildren(DashboardSettingsRouteChildren)
+
 interface DashboardRouteChildren {
   DashboardCategoriesRoute: typeof DashboardCategoriesRoute
   DashboardCustomersRoute: typeof DashboardCustomersRoute
   DashboardFaqRoute: typeof DashboardFaqRoute
   DashboardProductsRoute: typeof DashboardProductsRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardConversationsConversationIdRoute: typeof DashboardConversationsConversationIdRoute
   DashboardOrdersOrderIdRoute: typeof DashboardOrdersOrderIdRoute
@@ -263,6 +353,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardCustomersRoute: DashboardCustomersRoute,
   DashboardFaqRoute: DashboardFaqRoute,
   DashboardProductsRoute: DashboardProductsRoute,
+  DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardConversationsConversationIdRoute:
     DashboardConversationsConversationIdRoute,
@@ -278,6 +369,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
