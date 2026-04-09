@@ -17,7 +17,7 @@ export const createOrderSchema = z.object({
   taxAmount: z.number().min(0).default(0),
 });
 
-export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+export type CreateOrderInput = z.input<typeof createOrderSchema>;
 
 export const updateOrderStatusSchema = z.object({
   status: orderStatusSchema,
