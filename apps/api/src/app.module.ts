@@ -10,6 +10,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { IntentModule } from './intent/intent.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { CategoriesModule } from './categories/categories.module';
 import { FaqModule } from './faq/faq.module';
 import { PricingModule } from './pricing/pricing.module';
 import { RecommendationModule } from './recommendation/recommendation.module';
@@ -28,6 +29,7 @@ import { PromptTemplateModule } from './prompt-templates/prompt-template.module'
     MessagesModule,
     IntentModule,
     CatalogModule,
+    CategoriesModule,
     FaqModule,
     PricingModule,
     RecommendationModule,

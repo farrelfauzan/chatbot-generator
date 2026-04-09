@@ -13,7 +13,10 @@ export class CatalogRepository implements ICatalogRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<ProductResponse | null> {
-    const p = await this.prisma.client.product.findUnique({ where: { id } });
+    const p = await this.prisma.client.product.findUnique({
+      where: { id },
+      include: { category: true },
+    });
     return p ? this.toResponse(p) : null;
   }
 
@@ -25,12 +28,13 @@ export class CatalogRepository implements ICatalogRepository {
   async findAll(query?: ProductQuery): Promise<ProductResponse[]> {
     const rows = await this.prisma.client.product.findMany({
       where: {
-        ...(query?.category ? { category: query.category } : {}),
+        ...(query?.categoryId ? { categoryId: query.categoryId } : {}),
         ...(query?.isActive !== undefined ? { isActive: query.isActive } : {}),
         ...(query?.search
           ? { name: { contains: query.search, mode: 'insensitive' as any } }
           : {}),
       },
+      include: { category: true },
       orderBy: { name: 'asc' },
     });
     return rows.map((r: any) => this.toResponse(r));
@@ -41,9 +45,14 @@ export class CatalogRepository implements ICatalogRepository {
       where: {
         isActive: true,
         ...(category
-          ? { category: { equals: category, mode: 'insensitive' as any } }
+          ? {
+              category: {
+                name: { equals: category, mode: 'insensitive' as any },
+              },
+            }
           : {}),
       },
+      include: { category: true },
       orderBy: { name: 'asc' },
     });
     return rows.map((r: any) => this.toResponse(r));
@@ -56,9 +65,12 @@ export class CatalogRepository implements ICatalogRepository {
         OR: [
           { name: { contains: term, mode: 'insensitive' as any } },
           { description: { contains: term, mode: 'insensitive' as any } },
-          { category: { contains: term, mode: 'insensitive' as any } },
+          {
+            category: { name: { contains: term, mode: 'insensitive' as any } },
+          },
         ],
       },
+      include: { category: true },
     });
     return rows.map((r: any) => this.toResponse(r));
   }
@@ -74,6 +86,10 @@ export class CatalogRepository implements ICatalogRepository {
   }
 
   private toResponse(p: any): ProductResponse {
-    return { ...p, price: Number(p.price) };
+    return {
+      ...p,
+      price: Number(p.price),
+      category: p.category ?? null,
+    };
   }
 }
