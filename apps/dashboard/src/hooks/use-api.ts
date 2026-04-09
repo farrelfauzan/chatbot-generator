@@ -4,35 +4,35 @@ import {
   useQuery,
   useQueryClient,
   type UseQueryOptions,
-} from '@tanstack/react-query'
+} from "@tanstack/react-query";
 
-type QueryKey = string | [string, ...unknown[]]
+type QueryKey = string | [string, ...unknown[]];
 
 export const useApiQuery = <TData>(
   key: QueryKey,
   queryFn: () => Promise<TData>,
-  options?: Omit<UseQueryOptions<TData>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<TData>, "queryKey" | "queryFn">,
 ) => {
   return useQuery<TData>({
     queryKey: Array.isArray(key) ? key : [key],
     queryFn,
     ...options,
-  })
-}
+  });
+};
 
 type MutationOptions<TData, TVariables> = Omit<
   UseMutationOptions<TData, unknown, TVariables>,
-  'mutationFn'
+  "mutationFn"
 > & {
-  invalidateQueries?: QueryKey[]
-}
+  invalidateQueries?: QueryKey[];
+};
 
 export const useApiMutation = <TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
   options?: MutationOptions<TData, TVariables>,
 ) => {
-  const queryClient = useQueryClient()
-  const { invalidateQueries, onSuccess, ...restOptions } = options || {}
+  const queryClient = useQueryClient();
+  const { invalidateQueries, onSuccess, ...restOptions } = options || {};
 
   return useMutation<TData, unknown, TVariables>({
     mutationFn,
@@ -44,10 +44,10 @@ export const useApiMutation = <TData, TVariables>(
               queryKey: Array.isArray(key) ? key : [key],
             }),
           ),
-        )
+        );
       }
-      onSuccess?.(...args)
+      onSuccess?.(...args);
     },
     ...restOptions,
-  })
-}
+  });
+};

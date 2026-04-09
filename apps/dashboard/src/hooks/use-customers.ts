@@ -1,8 +1,8 @@
-import { useApiQuery } from "./use-api"
-import { customerApi, type Customer } from "@/lib/api"
+import { useApiQuery } from "./use-api";
+import { customerApi, type Customer } from "@/lib/api";
 
 export function useCustomers() {
-  return useApiQuery<Customer[]>("customers", () => customerApi.getAll())
+  return useApiQuery<Customer[]>("customers", () => customerApi.getAll());
 }
 
 export function useCustomer(id: string) {
@@ -10,5 +10,5 @@ export function useCustomer(id: string) {
     ["customers", id],
     () => customerApi.getById(id),
     { enabled: !!id },
-  )
+  );
 }
