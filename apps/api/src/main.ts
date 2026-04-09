@@ -15,7 +15,7 @@ import { ZodValidationPipe } from './common/zod-validation.pipe';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({ bodyLimit: 1048576 }),
   );
 
   app.useGlobalPipes(new ZodValidationPipe());

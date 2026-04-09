@@ -15,5 +15,6 @@ export const appConfig = {
     baseUrl: process.env.GOWA_BASE_URL ?? 'http://localhost:3000',
     basicAuth: process.env.GOWA_BASIC_AUTH ?? '',
     webhookSecret: process.env.GOWA_WEBHOOK_SECRET ?? '',
+    deviceId: process.env.GOWA_DEVICE_ID ?? '',
   },
 };

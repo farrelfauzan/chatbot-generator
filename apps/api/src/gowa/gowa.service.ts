@@ -6,6 +6,7 @@ export class GowaService {
   private readonly logger = new Logger(GowaService.name);
   private readonly baseUrl = appConfig.gowa.baseUrl;
   private readonly basicAuth = appConfig.gowa.basicAuth;
+  private readonly deviceId = appConfig.gowa.deviceId;
 
   async sendText(phone: string, message: string): Promise<void> {
     await this.post('/send/message', { phone, message });
@@ -43,6 +44,7 @@ export class GowaService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(this.deviceId ? { 'X-Device-Id': this.deviceId } : {}),
         ...(this.basicAuth
           ? {
               Authorization: `Basic ${Buffer.from(this.basicAuth).toString('base64')}`,
