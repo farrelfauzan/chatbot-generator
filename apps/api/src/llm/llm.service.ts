@@ -84,7 +84,8 @@ ${intentsJoined}
 
 ## Rules
 - Consider the conversation stage when the message is ambiguous
-- For short affirmative messages ("ok", "oke", "jadi", "lanjut") during pricing/order_confirm stage, classify as create_order
+- During pricing or order_confirm stage, if the user sends ANY short affirmative, confirmatory, or continuation message (e.g. "ok", "oke", "ya", "yep", "yes", "sure", "boleh", "jadi", "lanjut", "siap", "gas", "deal", "ayo", "yuk", "mau", "bisa", thumbs up, or similar), classify as create_order
+- During pricing or order_confirm stage, if the user sends product references by number (e.g. "3 dan 8", "nomor 2", "yang pertama") or product names, classify as create_order
 - Language may be Indonesian, English, or mixed
 - Respond ONLY with a JSON object, no other text
 
