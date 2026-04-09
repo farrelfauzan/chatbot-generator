@@ -28,7 +28,7 @@ const KEYWORD_RULES: Array<{ patterns: RegExp; intent: ChatIntent }> = [
     intent: 'ask_recommendation',
   },
   {
-    patterns: /\b(pesan|order|beli|buy|mau|checkout)\b/i,
+    patterns: /\b(pesan|order|beli|buy|checkout)\b/i,
     intent: 'create_order',
   },
   { patterns: /\b(invoice|tagihan|nota|faktur)\b/i, intent: 'request_invoice' },
