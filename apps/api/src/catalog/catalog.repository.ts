@@ -59,16 +59,37 @@ export class CatalogRepository implements ICatalogRepository {
   }
 
   async search(term: string): Promise<ProductResponse[]> {
+    // 1. Try exact name match first (full term in product name)
+    const exactRows = await this.prisma.client.product.findMany({
+      where: {
+        isActive: true,
+        name: { contains: term, mode: 'insensitive' as any },
+      },
+      include: { category: true },
+    });
+    if (exactRows.length > 0) {
+      return exactRows.map((r: any) => this.toResponse(r));
+    }
+
+    // 2. Fall back to word-based OR matching
+    const words = term
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 2);
+
+    const conditions = words.flatMap((word) => [
+      { name: { contains: word, mode: 'insensitive' as any } },
+      { description: { contains: word, mode: 'insensitive' as any } },
+      { category: { name: { contains: word, mode: 'insensitive' as any } } },
+    ]);
+
     const rows = await this.prisma.client.product.findMany({
       where: {
         isActive: true,
-        OR: [
-          { name: { contains: term, mode: 'insensitive' as any } },
-          { description: { contains: term, mode: 'insensitive' as any } },
-          {
-            category: { name: { contains: term, mode: 'insensitive' as any } },
-          },
-        ],
+        OR:
+          conditions.length > 0
+            ? conditions
+            : [{ name: { contains: term, mode: 'insensitive' as any } }],
       },
       include: { category: true },
     });
