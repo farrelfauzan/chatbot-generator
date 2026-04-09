@@ -25,7 +25,7 @@ async function bootstrap() {
   });
 
   // ─── Swagger UI from openapi.yaml ──────────────────
-  const yamlPath = join(__dirname, '..', 'openapi.yaml');
+  const yamlPath = join(__dirname, '..', '..', 'openapi.yaml');
   const document = load(readFileSync(yamlPath, 'utf8')) as Record<string, any>;
   SwaggerModule.setup('api-docs', app, () => document as any);
 

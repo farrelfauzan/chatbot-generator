@@ -73,4 +73,4 @@ RUN chown -R node:node /app
 USER node
 
 # Run migrations then start the app
-CMD ["sh", "-c", "cd packages/database && prisma migrate deploy && cd /app && tsx apps/api/dist/main.js"]
+CMD ["sh", "-c", "cd packages/database && prisma migrate deploy && cd /app && tsx apps/api/dist/src/main.js"]
