@@ -30,9 +30,9 @@ export class GowaWebhookGuard implements CanActivate {
     // GOWA sends: "sha256={hex_encoded_hmac}"
     const receivedHex = signature.replace('sha256=', '');
 
-    // Use rawBody if available (registered via @fastify/raw-body), fallback to JSON.stringify
+    // Use rawBody captured by preParsing hook, fallback to JSON.stringify
     const body: Buffer | string =
-      request.rawBody ?? JSON.stringify(request.body);
+      request.rawBody ?? request.raw?.rawBody ?? JSON.stringify(request.body);
 
     const expectedHex = createHmac('sha256', secret).update(body).digest('hex');
 

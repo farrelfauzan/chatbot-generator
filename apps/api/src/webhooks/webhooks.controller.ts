@@ -1,7 +1,16 @@
-import { Body, Controller, Post, UseGuards, Logger } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Inject,
+  Post,
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import Redis from 'ioredis';
 import { GowaWebhookGuard } from './gowa-webhook.guard';
 import { ConversationOrchestratorService } from '../conversations/conversation-orchestrator.service';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import type {
   GowaWebhookPayload,
   GowaInboundMessage,
@@ -13,7 +22,10 @@ import type {
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
-  constructor(private readonly orchestrator: ConversationOrchestratorService) {}
+  constructor(
+    private readonly orchestrator: ConversationOrchestratorService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   /**
    * Single unified endpoint that receives ALL GOWA webhook events.
@@ -87,6 +99,18 @@ export class WebhooksController {
         : undefined,
       senderName: (payload.from_name as string) ?? undefined,
     };
+
+    // Deduplicate: skip if we already processed this messageId
+    if (normalized.messageId) {
+      const dedupeKey = `dedup:${normalized.messageId}`;
+      const alreadySeen = await this.redis.set(dedupeKey, '1', 'EX', 300, 'NX');
+      if (!alreadySeen) {
+        this.logger.debug(
+          `Duplicate message ${normalized.messageId}, skipping`,
+        );
+        return { status: 'ok', skipped: true, reason: 'duplicate' };
+      }
+    }
 
     this.logger.log(`Inbound from ${phone}: ${message.substring(0, 80)}`);
 

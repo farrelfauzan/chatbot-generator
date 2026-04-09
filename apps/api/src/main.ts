@@ -13,9 +13,26 @@ import { appConfig } from './app.config';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
 
 async function bootstrap() {
+  const adapter = new FastifyAdapter({ bodyLimit: 1048576 });
+
+  // Capture raw body bytes for webhook HMAC verification via preParsing hook
+  adapter
+    .getInstance()
+    .addHook('preParsing', async (request: any, _reply: any, payload: any) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of payload) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      const raw = Buffer.concat(chunks);
+      request.rawBody = raw;
+      // Return a new readable stream for the parser
+      const { Readable } = await import('node:stream');
+      return Readable.from(raw);
+    });
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ bodyLimit: 1048576 }),
+    adapter,
   );
 
   app.useGlobalPipes(new ZodValidationPipe());
