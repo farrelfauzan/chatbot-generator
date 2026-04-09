@@ -4,7 +4,7 @@ export const createProductSchema = z.object({
   sku: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
-  category: z.string().optional(),
+  categoryId: z.string().optional(),
   price: z.number().positive(),
   stockQty: z.number().int().min(0).default(0),
   imageUrl: z.string().url().optional(),
@@ -16,12 +16,15 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 export const updateProductSchema = createProductSchema.partial();
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
+import { categoryResponseSchema } from "./category.schema";
+
 export const productResponseSchema = z.object({
   id: z.string(),
   sku: z.string(),
   name: z.string(),
   description: z.string().nullable(),
-  category: z.string().nullable(),
+  categoryId: z.string().nullable(),
+  category: categoryResponseSchema.nullable().optional(),
   price: z.number(),
   stockQty: z.number(),
   imageUrl: z.string().nullable(),
@@ -33,7 +36,7 @@ export const productResponseSchema = z.object({
 export type ProductResponse = z.infer<typeof productResponseSchema>;
 
 export const productQuerySchema = z.object({
-  category: z.string().optional(),
+  categoryId: z.string().optional(),
   search: z.string().optional(),
   isActive: z.coerce.boolean().optional(),
 });

@@ -7,6 +7,7 @@ export * from "./schemas/customer.schema";
 export * from "./schemas/conversation.schema";
 export * from "./schemas/message.schema";
 export * from "./schemas/product.schema";
+export * from "./schemas/category.schema";
 export * from "./schemas/order.schema";
 export * from "./schemas/invoice.schema";
 export * from "./schemas/payment.schema";
