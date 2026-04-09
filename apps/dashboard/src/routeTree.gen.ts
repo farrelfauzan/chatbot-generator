@@ -9,12 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardProductsRouteImport } from './routes/dashboard/products'
+import { Route as DashboardFaqRouteImport } from './routes/dashboard/faq'
+import { Route as DashboardCustomersRouteImport } from './routes/dashboard/customers'
+import { Route as DashboardOrdersIndexRouteImport } from './routes/dashboard/orders/index'
+import { Route as DashboardConversationsIndexRouteImport } from './routes/dashboard/conversations/index'
+import { Route as DashboardOrdersOrderIdRouteImport } from './routes/dashboard/orders/$orderId'
+import { Route as DashboardConversationsConversationIdRouteImport } from './routes/dashboard/conversations/$conversationId'
 
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -22,40 +30,135 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardProductsRoute = DashboardProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardFaqRoute = DashboardFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardOrdersIndexRoute = DashboardOrdersIndexRouteImport.update({
+  id: '/orders/',
+  path: '/orders/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardConversationsIndexRoute =
+  DashboardConversationsIndexRouteImport.update({
+    id: '/conversations/',
+    path: '/conversations/',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardOrdersOrderIdRoute = DashboardOrdersOrderIdRouteImport.update({
+  id: '/orders/$orderId',
+  path: '/orders/$orderId',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardConversationsConversationIdRoute =
+  DashboardConversationsConversationIdRouteImport.update({
+    id: '/conversations/$conversationId',
+    path: '/conversations/$conversationId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/customers': typeof DashboardCustomersRoute
+  '/dashboard/faq': typeof DashboardFaqRoute
+  '/dashboard/products': typeof DashboardProductsRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/conversations/$conversationId': typeof DashboardConversationsConversationIdRoute
+  '/dashboard/orders/$orderId': typeof DashboardOrdersOrderIdRoute
+  '/dashboard/conversations/': typeof DashboardConversationsIndexRoute
+  '/dashboard/orders/': typeof DashboardOrdersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/dashboard/customers': typeof DashboardCustomersRoute
+  '/dashboard/faq': typeof DashboardFaqRoute
+  '/dashboard/products': typeof DashboardProductsRoute
+  '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/conversations/$conversationId': typeof DashboardConversationsConversationIdRoute
+  '/dashboard/orders/$orderId': typeof DashboardOrdersOrderIdRoute
+  '/dashboard/conversations': typeof DashboardConversationsIndexRoute
+  '/dashboard/orders': typeof DashboardOrdersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/dashboard/customers': typeof DashboardCustomersRoute
+  '/dashboard/faq': typeof DashboardFaqRoute
+  '/dashboard/products': typeof DashboardProductsRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/conversations/$conversationId': typeof DashboardConversationsConversationIdRoute
+  '/dashboard/orders/$orderId': typeof DashboardOrdersOrderIdRoute
+  '/dashboard/conversations/': typeof DashboardConversationsIndexRoute
+  '/dashboard/orders/': typeof DashboardOrdersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/dashboard/customers'
+    | '/dashboard/faq'
+    | '/dashboard/products'
+    | '/dashboard/'
+    | '/dashboard/conversations/$conversationId'
+    | '/dashboard/orders/$orderId'
+    | '/dashboard/conversations/'
+    | '/dashboard/orders/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to:
+    | '/'
+    | '/dashboard/customers'
+    | '/dashboard/faq'
+    | '/dashboard/products'
+    | '/dashboard'
+    | '/dashboard/conversations/$conversationId'
+    | '/dashboard/orders/$orderId'
+    | '/dashboard/conversations'
+    | '/dashboard/orders'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/dashboard/customers'
+    | '/dashboard/faq'
+    | '/dashboard/products'
+    | '/dashboard/'
+    | '/dashboard/conversations/$conversationId'
+    | '/dashboard/orders/$orderId'
+    | '/dashboard/conversations/'
+    | '/dashboard/orders/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -65,12 +168,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/products': {
+      id: '/dashboard/products'
+      path: '/products'
+      fullPath: '/dashboard/products'
+      preLoaderRoute: typeof DashboardProductsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/faq': {
+      id: '/dashboard/faq'
+      path: '/faq'
+      fullPath: '/dashboard/faq'
+      preLoaderRoute: typeof DashboardFaqRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/customers': {
+      id: '/dashboard/customers'
+      path: '/customers'
+      fullPath: '/dashboard/customers'
+      preLoaderRoute: typeof DashboardCustomersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/orders/': {
+      id: '/dashboard/orders/'
+      path: '/orders'
+      fullPath: '/dashboard/orders/'
+      preLoaderRoute: typeof DashboardOrdersIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/conversations/': {
+      id: '/dashboard/conversations/'
+      path: '/conversations'
+      fullPath: '/dashboard/conversations/'
+      preLoaderRoute: typeof DashboardConversationsIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/orders/$orderId': {
+      id: '/dashboard/orders/$orderId'
+      path: '/orders/$orderId'
+      fullPath: '/dashboard/orders/$orderId'
+      preLoaderRoute: typeof DashboardOrdersOrderIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/conversations/$conversationId': {
+      id: '/dashboard/conversations/$conversationId'
+      path: '/conversations/$conversationId'
+      fullPath: '/dashboard/conversations/$conversationId'
+      preLoaderRoute: typeof DashboardConversationsConversationIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
+interface DashboardRouteChildren {
+  DashboardCustomersRoute: typeof DashboardCustomersRoute
+  DashboardFaqRoute: typeof DashboardFaqRoute
+  DashboardProductsRoute: typeof DashboardProductsRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardConversationsConversationIdRoute: typeof DashboardConversationsConversationIdRoute
+  DashboardOrdersOrderIdRoute: typeof DashboardOrdersOrderIdRoute
+  DashboardConversationsIndexRoute: typeof DashboardConversationsIndexRoute
+  DashboardOrdersIndexRoute: typeof DashboardOrdersIndexRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardCustomersRoute: DashboardCustomersRoute,
+  DashboardFaqRoute: DashboardFaqRoute,
+  DashboardProductsRoute: DashboardProductsRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  DashboardConversationsConversationIdRoute:
+    DashboardConversationsConversationIdRoute,
+  DashboardOrdersOrderIdRoute: DashboardOrdersOrderIdRoute,
+  DashboardConversationsIndexRoute: DashboardConversationsIndexRoute,
+  DashboardOrdersIndexRoute: DashboardOrdersIndexRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
+  DashboardRoute: DashboardRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
