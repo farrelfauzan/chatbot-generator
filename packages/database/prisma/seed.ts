@@ -6,6 +6,42 @@ const prisma = createPrismaClient();
 async function main() {
   console.log("🌱 Seeding database...");
 
+  // ─── Categories ────────────────────────────────────
+
+  const categoriesData = [
+    {
+      name: "Laptop",
+      description:
+        "Laptop untuk berbagai kebutuhan: kerja, gaming, desain, dan sehari-hari.",
+    },
+    {
+      name: "PC",
+      description:
+        "PC Desktop untuk office, desain grafis, gaming, dan custom build.",
+    },
+    {
+      name: "Monitor",
+      description: "Monitor berkualitas untuk produktivitas dan desain.",
+    },
+    {
+      name: "Accessories",
+      description: "Aksesoris komputer: keyboard, mouse, headset, dan lainnya.",
+    },
+  ];
+
+  const categoryMap: Record<string, string> = {};
+
+  for (const cat of categoriesData) {
+    const result = await prisma.category.upsert({
+      where: { name: cat.name },
+      create: { ...cat, isActive: true },
+      update: { description: cat.description },
+    });
+    categoryMap[cat.name.toLowerCase()] = result.id;
+  }
+
+  console.log(`  ✅ ${categoriesData.length} categories seeded`);
+
   // ─── Products ──────────────────────────────────────
 
   const products = [
@@ -14,7 +50,7 @@ async function main() {
       name: "Laptop ProBook 14",
       description:
         "Laptop 14 inch, Intel Core i5, 16GB RAM, 512GB SSD. Cocok untuk kerja dan multitasking.",
-      category: "laptop",
+      categoryId: categoryMap["laptop"],
       price: 12500000,
       stockQty: 15,
       isActive: true,
@@ -24,7 +60,7 @@ async function main() {
       name: "Laptop UltraSlim 13",
       description:
         "Laptop ultrabook 13 inch, AMD Ryzen 7, 16GB RAM, 256GB SSD. Ringan dan portable.",
-      category: "laptop",
+      categoryId: categoryMap["laptop"],
       price: 10800000,
       stockQty: 8,
       isActive: true,
@@ -34,7 +70,7 @@ async function main() {
       name: "PC Design Studio RTX 4060",
       description:
         "PC Desktop: Intel Core i7, 32GB RAM, RTX 4060, 1TB NVMe SSD. Ideal untuk desain grafis.",
-      category: "pc",
+      categoryId: categoryMap["pc"],
       price: 18500000,
       stockQty: 5,
       isActive: true,
@@ -44,7 +80,7 @@ async function main() {
       name: "PC Office Essential",
       description:
         "PC Desktop: Intel Core i3, 8GB RAM, 256GB SSD. Untuk kebutuhan office dan admin.",
-      category: "pc",
+      categoryId: categoryMap["pc"],
       price: 5200000,
       stockQty: 20,
       isActive: true,
@@ -54,7 +90,7 @@ async function main() {
       name: "Monitor IPS 27 inch 4K",
       description:
         "Monitor 27 inch IPS 4K UHD. Warna akurat untuk desain dan editing.",
-      category: "monitor",
+      categoryId: categoryMap["monitor"],
       price: 4500000,
       stockQty: 12,
       isActive: true,
@@ -63,7 +99,7 @@ async function main() {
       sku: "ACC-001",
       name: "Mechanical Keyboard RGB",
       description: "Keyboard mekanikal full-size, switch blue, RGB backlight.",
-      category: "accessories",
+      categoryId: categoryMap["accessories"],
       price: 850000,
       stockQty: 30,
       isActive: true,
@@ -73,7 +109,7 @@ async function main() {
       name: "Wireless Mouse Ergonomic",
       description:
         "Mouse wireless ergonomic dengan silent click. Battery life 12 bulan.",
-      category: "accessories",
+      categoryId: categoryMap["accessories"],
       price: 350000,
       stockQty: 50,
       isActive: true,
@@ -83,7 +119,7 @@ async function main() {
       name: "Laptop Gaming RTX 4070",
       description:
         "Laptop gaming 15.6 inch, Intel Core i7, 32GB RAM, RTX 4070, 1TB SSD. Untuk gaming dan rendering.",
-      category: "laptop",
+      categoryId: categoryMap["laptop"],
       price: 22000000,
       stockQty: 3,
       isActive: true,
