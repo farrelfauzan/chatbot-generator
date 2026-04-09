@@ -36,8 +36,10 @@ export class ConversationOrchestratorService {
   ) {}
 
   async handleInboundMessage(payload: GowaInboundMessage): Promise<void> {
-    // 1. Upsert customer
-    const customer = await this.customers.upsertByPhone(payload.phone);
+    // 1. Upsert customer (include sender name from WhatsApp if available)
+    const customer = await this.customers.upsertByPhone(payload.phone, {
+      ...(payload.senderName ? { name: payload.senderName } : {}),
+    });
 
     // 2. Find or create active conversation
     const conversation = await this.conversations.findOrCreateActive(
@@ -168,6 +170,11 @@ export class ConversationOrchestratorService {
     conversation: any,
   ): Promise<string> {
     const products = await this.catalog.listActive();
+
+    if (products.length === 0) {
+      return 'Maaf, katalog produk kami sedang kosong. Silakan hubungi tim kami untuk informasi lebih lanjut. 🙏';
+    }
+
     const faqEntries = await this.faq.listActive();
 
     return this.llm.generateGroundedReply(message, {
@@ -221,18 +228,66 @@ export class ConversationOrchestratorService {
   }
 
   private async handleCreateOrder(
-    _message: string,
+    message: string,
     customer: any,
     conversation: any,
   ): Promise<string> {
-    // For MVP: guide user to confirm items
-    return (
-      `Baik, untuk membuat pesanan, silakan kirimkan:\n\n` +
-      `• Nama produk\n` +
-      `• Jumlah\n\n` +
-      `Contoh: "Pesan Laptop ABC 2 unit"\n\n` +
-      `Saya akan hitungkan totalnya dan konfirmasi pesanan Anda.`
-    );
+    const products = await this.catalog.listActive();
+
+    if (products.length === 0) {
+      return 'Maaf, katalog produk kami sedang kosong saat ini. Belum bisa membuat pesanan. 🙏';
+    }
+
+    // Use LLM to match product name and quantity from the message
+    const requirements = await this.llm.extractRequirements(message);
+    const searchTerm = requirements.category ?? requirements.useCase ?? message;
+
+    const matches = await this.catalog.search(searchTerm);
+
+    if (matches.length === 0) {
+      const productList = products
+        .slice(0, 10)
+        .map(
+          (p) => `• ${p.name} - Rp ${Number(p.price).toLocaleString('id-ID')}`,
+        )
+        .join('\n');
+
+      return (
+        `Maaf, saya tidak menemukan produk yang cocok dengan "${searchTerm}".\n\n` +
+        `Produk yang tersedia:\n${productList}\n\n` +
+        `Silakan kirim nama produk yang sesuai beserta jumlahnya.`
+      );
+    }
+
+    const product = matches[0];
+    const qty = requirements.quantity ?? 1;
+    const total = product.price * qty;
+
+    // Create the order
+    try {
+      const order = await this.orders.create({
+        customerId: customer.id,
+        conversationId: conversation.id,
+        items: [{ productId: product.id, quantity: qty }],
+      });
+
+      await this.conversations.update(conversation.id, {
+        stage: 'order_confirm',
+      });
+
+      return (
+        `✅ *Pesanan dibuat!*\n\n` +
+        `No. Pesanan: *${order.orderNumber}*\n` +
+        `Produk: ${product.name}\n` +
+        `Jumlah: ${qty}\n` +
+        `Harga satuan: Rp ${Number(product.price).toLocaleString('id-ID')}\n` +
+        `*Total: Rp ${Number(order.totalAmount).toLocaleString('id-ID')}*\n\n` +
+        `Ketik "invoice" untuk menerima invoice, atau "batal" untuk membatalkan.`
+      );
+    } catch (err) {
+      this.logger.error('Failed to create order', err);
+      return 'Maaf, terjadi kesalahan saat membuat pesanan. Silakan coba lagi.';
+    }
   }
 
   private async handleRequestInvoice(
@@ -316,9 +371,17 @@ export class ConversationOrchestratorService {
     const products = await this.catalog.listActive();
     const faqEntries = await this.faq.listActive();
 
+    if (products.length === 0 && faqEntries.length === 0) {
+      return (
+        `Terima kasih atas pertanyaannya, ${customer.name ?? 'Kak'}! ` +
+        `Saat ini kami belum memiliki data produk di sistem. ` +
+        `Silakan hubungi tim kami untuk informasi lebih lanjut. 🙏`
+      );
+    }
+
     return this.llm.generateGroundedReply(message, {
       conversationStage: conversation.stage,
-      customerName: customer.name,
+      customerName: customer.name ?? 'Pelanggan',
       products: products.map((p) => ({
         name: p.name,
         price: Number(p.price),
