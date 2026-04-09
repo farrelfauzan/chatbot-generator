@@ -9,10 +9,42 @@ services:
       - apps/api/.env
     environment:
       - NODE_ENV=production
+      - GOWA_BASE_URL=http://gowa:3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+
+  gowa:
+    build:
+      context: ../GOWA
+      dockerfile: docker/golang.Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../GOWA/src/.env
+    environment:
+      - WHATSAPP_WEBHOOK=http://api:3001/webhooks/gowa/messages
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - gowa-storages:/app/storages
+      - gowa-statics:/app/statics
+    restart: on-failure
+    depends_on:
+      api:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+
+volumes:
+  gowa-storages:
+  gowa-statics:
