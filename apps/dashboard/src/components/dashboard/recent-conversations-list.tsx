@@ -15,14 +15,14 @@ export function RecentConversationsList({
         <CardTitle className="text-base">Recent Conversations</CardTitle>
         <Link
           to="/dashboard/conversations"
-          className="text-sm font-medium text-(--primary) hover:underline"
+          className="text-sm font-medium text-primary hover:underline"
         >
           View all
         </Link>
       </CardHeader>
       <CardContent>
         {conversations.length === 0 ? (
-          <p className="text-sm text-(--muted-foreground)">
+          <p className="text-sm text-muted-foreground">
             No conversations yet
           </p>
         ) : (
@@ -32,17 +32,17 @@ export function RecentConversationsList({
                 key={conv.id}
                 to="/dashboard/conversations/$conversationId"
                 params={{ conversationId: conv.id }}
-                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-(--muted)"
+                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
               >
                 <div>
                   <p className="text-sm font-medium">
                     {conv.customer?.name ?? conv.customer?.phoneNumber ?? conv.customerId}
                   </p>
-                  <p className="text-xs text-(--muted-foreground)">
+                  <p className="text-xs text-muted-foreground">
                     Stage: {conv.stage}
                   </p>
                 </div>
-                <p className="text-xs text-(--muted-foreground)">
+                <p className="text-xs text-muted-foreground">
                   {new Date(conv.updatedAt).toLocaleDateString("id-ID")}
                 </p>
               </Link>

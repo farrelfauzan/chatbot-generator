@@ -29,7 +29,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
         <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-(--muted-foreground)">
+              <TableCell colSpan={5} className="text-center text-muted-foreground">
                 No products found
               </TableCell>
             </TableRow>
@@ -37,8 +37,8 @@ export function ProductsTable({ products }: ProductsTableProps) {
             products.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell className="text-(--muted-foreground)">
-                  {product.category ?? "—"}
+                <TableCell className="text-muted-foreground">
+                  {product.category?.name ?? "—"}
                 </TableCell>
                 <TableCell className="text-right">
                   Rp {Number(product.price).toLocaleString("id-ID")}

@@ -39,7 +39,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
         <TableBody>
           {orders.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-(--muted-foreground)">
+              <TableCell colSpan={5} className="text-center text-muted-foreground">
                 No orders found
               </TableCell>
             </TableRow>
@@ -50,7 +50,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                   <Link
                     to="/dashboard/orders/$orderId"
                     params={{ orderId: order.id }}
-                    className="font-medium text-(--primary) hover:underline"
+                    className="font-medium text-primary hover:underline"
                   >
                     {order.orderNumber}
                   </Link>
@@ -69,7 +69,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                     {order.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-(--muted-foreground)">
+                <TableCell className="text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString("id-ID")}
                 </TableCell>
               </TableRow>

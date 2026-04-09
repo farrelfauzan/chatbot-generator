@@ -33,7 +33,7 @@ export function FaqTable({ entries }: FaqTableProps) {
         <TableBody>
           {entries.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-(--muted-foreground)">
+              <TableCell colSpan={4} className="text-center text-muted-foreground">
                 No FAQ entries found
               </TableCell>
             </TableRow>
@@ -43,12 +43,12 @@ export function FaqTable({ entries }: FaqTableProps) {
                 <TableCell>
                   <div>
                     <p className="font-medium">{entry.question}</p>
-                    <p className="mt-1 text-sm text-(--muted-foreground) line-clamp-2">
+                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                       {entry.answer}
                     </p>
                   </div>
                 </TableCell>
-                <TableCell className="text-(--muted-foreground)">
+                <TableCell className="text-muted-foreground">
                   {entry.category ?? "—"}
                 </TableCell>
                 <TableCell>

@@ -27,7 +27,7 @@ export function CustomersTable({ customers }: CustomersTableProps) {
         <TableBody>
           {customers.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-(--muted-foreground)">
+              <TableCell colSpan={4} className="text-center text-muted-foreground">
                 No customers found
               </TableCell>
             </TableRow>
@@ -38,10 +38,10 @@ export function CustomersTable({ customers }: CustomersTableProps) {
                   {customer.name ?? "—"}
                 </TableCell>
                 <TableCell>{customer.phoneNumber}</TableCell>
-                <TableCell className="text-(--muted-foreground)">
+                <TableCell className="text-muted-foreground">
                   {customer.email ?? "—"}
                 </TableCell>
-                <TableCell className="text-(--muted-foreground)">
+                <TableCell className="text-muted-foreground">
                   {new Date(customer.createdAt).toLocaleDateString("id-ID")}
                 </TableCell>
               </TableRow>

@@ -4,6 +4,7 @@ import {
   MessageSquare,
   Users,
   Package,
+  Tags,
   ShoppingCart,
   HelpCircle,
   Bot,
@@ -16,16 +17,17 @@ const navItems = [
   { to: "/dashboard/conversations", label: "Conversations", icon: MessageSquare },
   { to: "/dashboard/customers", label: "Customers", icon: Users },
   { to: "/dashboard/products", label: "Products", icon: Package },
+  { to: "/dashboard/categories", label: "Categories", icon: Tags },
   { to: "/dashboard/orders", label: "Orders", icon: ShoppingCart },
   { to: "/dashboard/faq", label: "FAQ", icon: HelpCircle },
 ] as const
 
 export function DashboardSidebar() {
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-(--sidebar-border) bg-(--sidebar-background)">
-      <div className="flex h-14 items-center gap-2 border-b border-(--sidebar-border) px-4">
-        <Bot className="h-6 w-6 text-(--primary)" />
-        <span className="text-base font-semibold text-(--foreground)">
+    <aside className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar-background">
+      <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
+        <Bot className="h-6 w-6 text-primary" />
+        <span className="text-base font-semibold text-foreground">
           Chatbot Dashboard
         </span>
       </div>

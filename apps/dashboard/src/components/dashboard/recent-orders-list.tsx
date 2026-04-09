@@ -23,14 +23,14 @@ export function RecentOrdersList({ orders }: RecentOrdersListProps) {
         <CardTitle className="text-base">Recent Orders</CardTitle>
         <Link
           to="/dashboard/orders"
-          className="text-sm font-medium text-(--primary) hover:underline"
+          className="text-sm font-medium text-primary hover:underline"
         >
           View all
         </Link>
       </CardHeader>
       <CardContent>
         {orders.length === 0 ? (
-          <p className="text-sm text-(--muted-foreground)">No orders yet</p>
+          <p className="text-sm text-muted-foreground">No orders yet</p>
         ) : (
           <div className="space-y-3">
             {orders.slice(0, 5).map((order) => (
@@ -38,11 +38,11 @@ export function RecentOrdersList({ orders }: RecentOrdersListProps) {
                 key={order.id}
                 to="/dashboard/orders/$orderId"
                 params={{ orderId: order.id }}
-                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-(--muted)"
+                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
               >
                 <div>
                   <p className="text-sm font-medium">{order.orderNumber}</p>
-                  <p className="text-xs text-(--muted-foreground)">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(order.createdAt).toLocaleDateString("id-ID")}
                   </p>
                 </div>

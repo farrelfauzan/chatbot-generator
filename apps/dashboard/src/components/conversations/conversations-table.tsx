@@ -35,7 +35,7 @@ export function ConversationsTable({ conversations }: ConversationsTableProps) {
         <TableBody>
           {conversations.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-(--muted-foreground)">
+              <TableCell colSpan={4} className="text-center text-muted-foreground">
                 No conversations found
               </TableCell>
             </TableRow>
@@ -46,7 +46,7 @@ export function ConversationsTable({ conversations }: ConversationsTableProps) {
                   <Link
                     to="/dashboard/conversations/$conversationId"
                     params={{ conversationId: conv.id }}
-                    className="font-medium text-(--primary) hover:underline"
+                    className="font-medium text-primary hover:underline"
                   >
                     {conv.customer?.name ?? conv.customer?.phoneNumber ?? conv.customerId}
                   </Link>
@@ -59,10 +59,10 @@ export function ConversationsTable({ conversations }: ConversationsTableProps) {
                     {conv.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-(--muted-foreground)">
+                <TableCell className="text-muted-foreground">
                   {conv.stage}
                 </TableCell>
-                <TableCell className="text-(--muted-foreground)">
+                <TableCell className="text-muted-foreground">
                   {new Date(conv.updatedAt).toLocaleString("id-ID")}
                 </TableCell>
               </TableRow>

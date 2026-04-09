@@ -35,7 +35,7 @@ function OrderDetailPage() {
   }
 
   if (!order) {
-    return <p className="text-(--muted-foreground)">Order not found</p>
+    return <p className="text-muted-foreground">Order not found</p>
   }
 
   return (
@@ -55,19 +55,19 @@ function OrderDetailPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-(--muted-foreground)">Subtotal</span>
+            <span className="text-muted-foreground">Subtotal</span>
             <span>Rp {Number(order.subtotal).toLocaleString("id-ID")}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-(--muted-foreground)">Discount</span>
+            <span className="text-muted-foreground">Discount</span>
             <span>-Rp {Number(order.discountAmount).toLocaleString("id-ID")}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-(--muted-foreground)">Shipping</span>
+            <span className="text-muted-foreground">Shipping</span>
             <span>Rp {Number(order.shippingAmount).toLocaleString("id-ID")}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-(--muted-foreground)">Tax</span>
+            <span className="text-muted-foreground">Tax</span>
             <span>Rp {Number(order.taxAmount).toLocaleString("id-ID")}</span>
           </div>
           <Separator />
@@ -76,7 +76,7 @@ function OrderDetailPage() {
             <span>Rp {Number(order.totalAmount).toLocaleString("id-ID")}</span>
           </div>
           <div className="flex justify-between pt-2">
-            <span className="text-(--muted-foreground)">Date</span>
+            <span className="text-muted-foreground">Date</span>
             <span>{new Date(order.createdAt).toLocaleString("id-ID")}</span>
           </div>
         </CardContent>
