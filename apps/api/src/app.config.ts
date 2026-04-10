@@ -18,7 +18,7 @@ export const appConfig = {
     baseUrl: process.env.LLM_BASE_URL ?? 'https://ai.sumopod.com/v1',
     apiKey: process.env.LLM_API_KEY ?? '',
     model: process.env.LLM_MODEL ?? 'gemini/gemini-2.5-flash-lite',
-    maxTokens: Number(process.env.LLM_MAX_TOKENS ?? 300),
+    maxTokens: Number(process.env.LLM_MAX_TOKENS ?? 2048),
     temperature: Number(process.env.LLM_TEMPERATURE ?? 0.7),
   },
   gowa: {
@@ -26,5 +26,17 @@ export const appConfig = {
     basicAuth: process.env.GOWA_BASIC_AUTH ?? '',
     webhookSecret: process.env.GOWA_WEBHOOK_SECRET ?? '',
     deviceId: process.env.GOWA_DEVICE_ID ?? '',
+  },
+  s3: {
+    region: process.env.AWS_REGION ?? 'ap-southeast-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
+    bucket: process.env.S3_BUCKET_NAME ?? 'performa-assets',
+    prefix: process.env.S3_PREFIX ?? 'chatbot-catalog-images',
+  },
+  doku: {
+    clientId: process.env.DOKU_CLIENT_ID ?? '',
+    secretKey: process.env.DOKU_SECRET_KEY ?? '',
+    baseUrl: process.env.DOKU_BASE_URL ?? 'https://api-sandbox.doku.com',
   },
 };

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CatalogService } from '../catalog/catalog.service';
+import { CardboardService } from '../cardboard/cardboard.service';
 import type {
   PricingRequest,
   PricingResponse,
@@ -8,20 +8,22 @@ import type {
 
 @Injectable()
 export class PricingService {
-  constructor(private readonly catalog: CatalogService) {}
+  constructor(private readonly cardboard: CardboardService) {}
 
   async calculate(request: PricingRequest): Promise<PricingResponse> {
     const items: PricingLineItem[] = [];
 
     for (const item of request.items) {
-      const product = await this.catalog.findById(item.productId);
-      const lineTotal = product.price * item.quantity;
+      const product = await this.cardboard.findById(item.productId);
+      if (!product) continue;
+      const price = Number(product.pricePerPcs);
+      const lineTotal = price * item.quantity;
 
       items.push({
         productId: product.id,
         productName: product.name,
         quantity: item.quantity,
-        unitPrice: product.price,
+        unitPrice: price,
         lineTotal,
       });
     }

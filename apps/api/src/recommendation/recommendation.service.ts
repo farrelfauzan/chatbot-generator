@@ -3,7 +3,7 @@ import {
   RECOMMENDATION_REPOSITORY,
   type IRecommendationRepository,
 } from './recommendation.repository.interface';
-import { CatalogService } from '../catalog/catalog.service';
+import { CardboardService } from '../cardboard/cardboard.service';
 import { LlmService } from '../llm/llm.service';
 import type { RecommendationResult } from '@chatbot-generator/shared-types';
 
@@ -14,7 +14,7 @@ export class RecommendationService {
   constructor(
     @Inject(RECOMMENDATION_REPOSITORY)
     private readonly recRepo: IRecommendationRepository,
-    private readonly catalog: CatalogService,
+    private readonly cardboard: CardboardService,
     private readonly llm: LlmService,
   ) {}
 
@@ -27,14 +27,16 @@ export class RecommendationService {
     const requirements = await this.llm.extractRequirements(userMessage);
 
     // 2. Query matching products
-    const products = await this.catalog.listActive(requirements.category);
+    const products = await this.cardboard.findAll();
 
     if (products.length === 0) return null;
 
     // 3. Filter by budget if provided
     let candidates = products;
     if (requirements.budgetMax) {
-      candidates = products.filter((p) => p.price <= requirements.budgetMax!);
+      candidates = products.filter(
+        (p) => Number(p.pricePerPcs) <= requirements.budgetMax!,
+      );
       if (candidates.length === 0) candidates = products; // fallback to all
     }
 
@@ -42,7 +44,7 @@ export class RecommendationService {
     candidates.sort((a, b) => {
       if (a.stockQty > 0 && b.stockQty === 0) return -1;
       if (b.stockQty > 0 && a.stockQty === 0) return 1;
-      return a.price - b.price;
+      return Number(a.pricePerPcs) - Number(b.pricePerPcs);
     });
 
     const primary = candidates[0];
@@ -51,15 +53,25 @@ export class RecommendationService {
     // 5. Generate explanation via LLM
     const explanation = await this.llm.explainRecommendation(
       userMessage,
-      primary,
-      alternative,
+      {
+        name: primary.name,
+        price: Number(primary.pricePerPcs),
+        stockQty: primary.stockQty,
+      },
+      alternative
+        ? {
+            name: alternative.name,
+            price: Number(alternative.pricePerPcs),
+            stockQty: alternative.stockQty,
+          }
+        : null,
     );
 
     const result: RecommendationResult = {
       primaryProduct: {
         id: primary.id,
         name: primary.name,
-        price: primary.price,
+        price: Number(primary.pricePerPcs),
         stockQty: primary.stockQty,
         matchReason: 'Best match based on requirements and availability',
       },
@@ -67,7 +79,7 @@ export class RecommendationService {
         ? {
             id: alternative.id,
             name: alternative.name,
-            price: alternative.price,
+            price: Number(alternative.pricePerPcs),
             stockQty: alternative.stockQty,
             matchReason: 'Alternative option',
           }

@@ -17,4 +17,10 @@ export class AuthController {
   async getProfile(@CurrentAdmin() admin: { sub: string }) {
     return this.auth.getProfile(admin.sub);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async getMe(@CurrentAdmin() admin: { sub: string }) {
+    return this.auth.getProfile(admin.sub);
+  }
 }

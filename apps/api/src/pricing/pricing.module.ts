@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { PricingService } from './pricing.service';
-import { CatalogModule } from '../catalog/catalog.module';
+import { CardboardModule } from '../cardboard/cardboard.module';
 
 @Module({
-  imports: [CatalogModule],
+  imports: [CardboardModule],
   providers: [PricingService],
   exports: [PricingService],
 })
