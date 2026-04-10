@@ -16,7 +16,7 @@ export interface OrderCreateData {
   taxAmount: number;
   totalAmount: number;
   items: Array<{
-    productId: string;
+    cardboardProductId: string;
     productNameSnapshot: string;
     quantity: number;
     unitPrice: number;
