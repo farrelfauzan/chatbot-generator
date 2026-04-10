@@ -5,7 +5,7 @@ import { hashSync } from "bcrypt";
 const prisma = createPrismaClient();
 
 async function main() {
-  console.log("🌱 Seeding database...");
+  console.log("🌱 Seeding cardboard box database...");
 
   // ─── Admin Account ─────────────────────────────────
 
@@ -27,13 +27,14 @@ async function main() {
   // ─── Company Info ──────────────────────────────────
 
   const companyInfoData = [
-    { key: "name", value: "Toko Komputer Jaya" },
+    { key: "name", value: "Dus Kapuk Jaya" },
     { key: "phone", value: "6281381035295" },
-    { key: "email", value: "info@tokokomputerjaya.com" },
-    { key: "address", value: "Jl. Mangga Dua Raya No. 10, Jakarta Pusat" },
+    { key: "email", value: "info@duskapukjaya.com" },
+    { key: "address", value: "Kapuk, Jakarta Barat" },
     {
       key: "description",
-      value: "Toko komputer & laptop terpercaya sejak 2010",
+      value:
+        "Supplier dus & kardus berbagai ukuran. Lokasi di Kapuk, Jakarta Barat.",
     },
   ];
 
@@ -53,14 +54,14 @@ async function main() {
     {
       bankName: "BCA",
       accountNumber: "1234567890",
-      accountHolder: "PT Toko Komputer Jaya",
+      accountHolder: "Dus Kapuk Jaya",
       isActive: true,
       isDefault: true,
     },
     {
       bankName: "Mandiri",
       accountNumber: "0987654321",
-      accountHolder: "PT Toko Komputer Jaya",
+      accountHolder: "Dus Kapuk Jaya",
       isActive: true,
       isDefault: false,
     },
@@ -77,135 +78,361 @@ async function main() {
 
   console.log(`  ✅ ${bankAccountsData.length} bank accounts seeded`);
 
-  // ─── Categories ────────────────────────────────────
+  // ─── Sablon Options ────────────────────────────────
 
-  const categoriesData = [
+  const sablonOptions = [
+    { name: "Sablon 1 Sisi", sidesCount: 1, pricePerSide: 500, isActive: true },
+    { name: "Sablon 2 Sisi", sidesCount: 2, pricePerSide: 500, isActive: true },
+    { name: "Sablon 3 Sisi", sidesCount: 3, pricePerSide: 500, isActive: true },
+    { name: "Sablon 4 Sisi", sidesCount: 4, pricePerSide: 500, isActive: true },
+  ];
+
+  for (const opt of sablonOptions) {
+    const existing = await prisma.sablonOption.findFirst({
+      where: { sidesCount: opt.sidesCount },
+    });
+    if (!existing) {
+      await prisma.sablonOption.create({ data: opt });
+    }
+  }
+
+  console.log(`  ✅ ${sablonOptions.length} sablon options seeded`);
+
+  // ─── Cardboard Products (Dus Baru) ─────────────────
+
+  interface BoxSize {
+    panjang: number;
+    lebar: number;
+    tinggi: number;
+    surfaceArea: number;
+    singlewall: number;
+    cflute: number;
+    doublewall: number;
+  }
+
+  const dusBaru: BoxSize[] = [
     {
-      name: "Laptop",
-      description:
-        "Laptop untuk berbagai kebutuhan: kerja, gaming, desain, dan sehari-hari.",
+      panjang: 12,
+      lebar: 12,
+      tinggi: 5,
+      surfaceArea: 528,
+      singlewall: 714,
+      cflute: 840,
+      doublewall: 1229,
     },
     {
-      name: "PC",
-      description:
-        "PC Desktop untuk office, desain grafis, gaming, dan custom build.",
+      panjang: 15,
+      lebar: 10,
+      tinggi: 8,
+      surfaceArea: 700,
+      singlewall: 945,
+      cflute: 1113,
+      doublewall: 1629,
     },
     {
-      name: "Monitor",
-      description: "Monitor berkualitas untuk produktivitas dan desain.",
+      panjang: 20,
+      lebar: 15,
+      tinggi: 10,
+      surfaceArea: 1300,
+      singlewall: 1755,
+      cflute: 2067,
+      doublewall: 3024,
     },
     {
-      name: "Accessories",
-      description: "Aksesoris komputer: keyboard, mouse, headset, dan lainnya.",
+      panjang: 25,
+      lebar: 20,
+      tinggi: 10,
+      surfaceArea: 1900,
+      singlewall: 2565,
+      cflute: 3021,
+      doublewall: 4422,
+    },
+    {
+      panjang: 25,
+      lebar: 20,
+      tinggi: 15,
+      surfaceArea: 2250,
+      singlewall: 3038,
+      cflute: 3578,
+      doublewall: 5237,
+    },
+    {
+      panjang: 30,
+      lebar: 20,
+      tinggi: 15,
+      surfaceArea: 2700,
+      singlewall: 3645,
+      cflute: 4293,
+      doublewall: 6284,
+    },
+    {
+      panjang: 30,
+      lebar: 25,
+      tinggi: 15,
+      surfaceArea: 3150,
+      singlewall: 4253,
+      cflute: 5009,
+      doublewall: 7331,
+    },
+    {
+      panjang: 30,
+      lebar: 25,
+      tinggi: 20,
+      surfaceArea: 3700,
+      singlewall: 4995,
+      cflute: 5882,
+      doublewall: 8609,
+    },
+    {
+      panjang: 35,
+      lebar: 25,
+      tinggi: 15,
+      surfaceArea: 3550,
+      singlewall: 4793,
+      cflute: 5645,
+      doublewall: 8262,
+    },
+    {
+      panjang: 35,
+      lebar: 25,
+      tinggi: 20,
+      surfaceArea: 4150,
+      singlewall: 5603,
+      cflute: 6598,
+      doublewall: 9658,
+    },
+    {
+      panjang: 40,
+      lebar: 25,
+      tinggi: 20,
+      surfaceArea: 4600,
+      singlewall: 6210,
+      cflute: 7312,
+      doublewall: 10703,
+    },
+    {
+      panjang: 40,
+      lebar: 30,
+      tinggi: 20,
+      surfaceArea: 5200,
+      singlewall: 7020,
+      cflute: 8268,
+      doublewall: 12103,
+    },
+    {
+      panjang: 40,
+      lebar: 30,
+      tinggi: 25,
+      surfaceArea: 5900,
+      singlewall: 7965,
+      cflute: 9378,
+      doublewall: 13727,
+    },
+    {
+      panjang: 40,
+      lebar: 30,
+      tinggi: 30,
+      surfaceArea: 6600,
+      singlewall: 8910,
+      cflute: 10489,
+      doublewall: 15352,
+    },
+    {
+      panjang: 50,
+      lebar: 30,
+      tinggi: 20,
+      surfaceArea: 6200,
+      singlewall: 8370,
+      cflute: 9857,
+      doublewall: 14427,
+    },
+    {
+      panjang: 50,
+      lebar: 30,
+      tinggi: 30,
+      surfaceArea: 7800,
+      singlewall: 10530,
+      cflute: 12401,
+      doublewall: 18152,
+    },
+    {
+      panjang: 50,
+      lebar: 40,
+      tinggi: 30,
+      surfaceArea: 9400,
+      singlewall: 12690,
+      cflute: 14944,
+      doublewall: 21877,
+    },
+    {
+      panjang: 60,
+      lebar: 40,
+      tinggi: 30,
+      surfaceArea: 10800,
+      singlewall: 14580,
+      cflute: 17166,
+      doublewall: 25128,
+    },
+    {
+      panjang: 60,
+      lebar: 40,
+      tinggi: 40,
+      surfaceArea: 12800,
+      singlewall: 17280,
+      cflute: 20352,
+      doublewall: 29792,
+    },
+    {
+      panjang: 70,
+      lebar: 50,
+      tinggi: 40,
+      surfaceArea: 17800,
+      singlewall: 24030,
+      cflute: 28298,
+      doublewall: 41420,
     },
   ];
 
-  const categoryMap: Record<string, string> = {};
+  const materials: Array<{ key: keyof BoxSize; label: string }> = [
+    { key: "singlewall", label: "singlewall" },
+    { key: "cflute", label: "cflute" },
+    { key: "doublewall", label: "doublewall" },
+  ];
 
-  for (const cat of categoriesData) {
-    const result = await prisma.category.upsert({
-      where: { name: cat.name },
-      create: { ...cat, isActive: true },
-      update: { description: cat.description },
-    });
-    categoryMap[cat.name.toLowerCase()] = result.id;
+  let productCount = 0;
+  let skuCounter = 1;
+
+  for (const box of dusBaru) {
+    for (const mat of materials) {
+      const sku = `DUS-${String(skuCounter++).padStart(3, "0")}`;
+      const name = `Dus ${box.panjang}x${box.lebar}x${box.tinggi} ${mat.label.charAt(0).toUpperCase() + mat.label.slice(1)}`;
+      const price = box[mat.key] as number;
+
+      // Random stock: 0-500, with ~15% chance of 0 (out of stock)
+      const stockQty =
+        Math.random() < 0.15 ? 0 : Math.floor(Math.random() * 500) + 50;
+      const isReadyStock = stockQty > 0 && Math.random() > 0.3;
+
+      await prisma.cardboardProduct.upsert({
+        where: { sku },
+        create: {
+          sku,
+          name,
+          type: "dus_baru",
+          panjang: box.panjang,
+          lebar: box.lebar,
+          tinggi: box.tinggi,
+          surfaceArea: box.surfaceArea,
+          material: mat.label,
+          pricePerPcs: price,
+          stockQty,
+          isReadyStock,
+          leadTimeDays: isReadyStock ? null : Math.floor(Math.random() * 5) + 3,
+          isActive: true,
+        },
+        update: {
+          pricePerPcs: price,
+          type: "dus_baru",
+        },
+      });
+      productCount++;
+    }
   }
 
-  console.log(`  ✅ ${categoriesData.length} categories seeded`);
+  // ─── Cardboard Products (Dus Pizza) ────────────────
 
-  // ─── Products ──────────────────────────────────────
+  interface PizzaSize {
+    panjang: number;
+    lebar: number;
+    tinggi: number;
+    price: number;
+    minOrder: number;
+    maxOrder: number;
+  }
 
-  const products = [
+  const dusPizza: PizzaSize[] = [
     {
-      sku: "LAP-001",
-      name: "Laptop ProBook 14",
-      description:
-        "Laptop 14 inch, Intel Core i5, 16GB RAM, 512GB SSD. Cocok untuk kerja dan multitasking.",
-      categoryId: categoryMap["laptop"],
-      price: 12500000,
-      stockQty: 15,
-      isActive: true,
+      panjang: 19,
+      lebar: 11,
+      tinggi: 5,
+      price: 1571,
+      minOrder: 34,
+      maxOrder: 42,
     },
     {
-      sku: "LAP-002",
-      name: "Laptop UltraSlim 13",
-      description:
-        "Laptop ultrabook 13 inch, AMD Ryzen 7, 16GB RAM, 256GB SSD. Ringan dan portable.",
-      categoryId: categoryMap["laptop"],
-      price: 10800000,
-      stockQty: 8,
-      isActive: true,
+      panjang: 22,
+      lebar: 22,
+      tinggi: 5,
+      price: 2100,
+      minOrder: 20,
+      maxOrder: 30,
     },
     {
-      sku: "PC-001",
-      name: "PC Design Studio RTX 4060",
-      description:
-        "PC Desktop: Intel Core i7, 32GB RAM, RTX 4060, 1TB NVMe SSD. Ideal untuk desain grafis.",
-      categoryId: categoryMap["pc"],
-      price: 18500000,
-      stockQty: 5,
-      isActive: true,
+      panjang: 25,
+      lebar: 25,
+      tinggi: 5,
+      price: 2450,
+      minOrder: 20,
+      maxOrder: 30,
     },
     {
-      sku: "PC-002",
-      name: "PC Office Essential",
-      description:
-        "PC Desktop: Intel Core i3, 8GB RAM, 256GB SSD. Untuk kebutuhan office dan admin.",
-      categoryId: categoryMap["pc"],
-      price: 5200000,
-      stockQty: 20,
-      isActive: true,
+      panjang: 30,
+      lebar: 30,
+      tinggi: 5,
+      price: 3200,
+      minOrder: 15,
+      maxOrder: 25,
     },
     {
-      sku: "MON-001",
-      name: "Monitor IPS 27 inch 4K",
-      description:
-        "Monitor 27 inch IPS 4K UHD. Warna akurat untuk desain dan editing.",
-      categoryId: categoryMap["monitor"],
-      price: 4500000,
-      stockQty: 12,
-      isActive: true,
+      panjang: 35,
+      lebar: 35,
+      tinggi: 5,
+      price: 3800,
+      minOrder: 10,
+      maxOrder: 20,
     },
     {
-      sku: "ACC-001",
-      name: "Mechanical Keyboard RGB",
-      description: "Keyboard mekanikal full-size, switch blue, RGB backlight.",
-      categoryId: categoryMap["accessories"],
-      price: 850000,
-      stockQty: 30,
-      isActive: true,
-    },
-    {
-      sku: "ACC-002",
-      name: "Wireless Mouse Ergonomic",
-      description:
-        "Mouse wireless ergonomic dengan silent click. Battery life 12 bulan.",
-      categoryId: categoryMap["accessories"],
-      price: 350000,
-      stockQty: 50,
-      isActive: true,
-    },
-    {
-      sku: "LAP-003",
-      name: "Laptop Gaming RTX 4070",
-      description:
-        "Laptop gaming 15.6 inch, Intel Core i7, 32GB RAM, RTX 4070, 1TB SSD. Untuk gaming dan rendering.",
-      categoryId: categoryMap["laptop"],
-      price: 22000000,
-      stockQty: 3,
-      isActive: true,
+      panjang: 40,
+      lebar: 40,
+      tinggi: 5,
+      price: 4500,
+      minOrder: 10,
+      maxOrder: 15,
     },
   ];
 
-  for (const product of products) {
-    await prisma.product.upsert({
-      where: { sku: product.sku },
-      create: product,
-      update: product,
+  for (const pizza of dusPizza) {
+    const sku = `PIZ-${String(skuCounter++).padStart(3, "0")}`;
+    const name = `Dus Pizza ${pizza.panjang}x${pizza.lebar}x${pizza.tinggi}`;
+    const stockQty =
+      Math.random() < 0.15 ? 0 : Math.floor(Math.random() * 300) + 50;
+    const isReadyStock = stockQty > 0 && Math.random() > 0.3;
+
+    await prisma.cardboardProduct.upsert({
+      where: { sku },
+      create: {
+        sku,
+        name,
+        type: "dus_pizza",
+        panjang: pizza.panjang,
+        lebar: pizza.lebar,
+        tinggi: pizza.tinggi,
+        material: "singlewall",
+        pricePerPcs: pizza.price,
+        stockQty,
+        isReadyStock,
+        leadTimeDays: isReadyStock ? null : Math.floor(Math.random() * 5) + 3,
+        isActive: true,
+      },
+      update: {
+        pricePerPcs: pizza.price,
+        type: "dus_pizza",
+      },
     });
+    productCount++;
   }
 
-  console.log(`  ✅ ${products.length} products seeded`);
+  console.log(`  ✅ ${productCount} cardboard products seeded`);
 
   // ─── FAQ Entries ────────────────────────────────────
 
@@ -213,42 +440,53 @@ async function main() {
     {
       question: "Berapa lama pengiriman?",
       answer:
-        "Pengiriman biasanya memakan waktu 2-5 hari kerja tergantung lokasi Anda.",
+        "Pengiriman tergantung lokasi. Area Jakarta Barat bisa same-day. Jabodetabek 1-2 hari kerja. Luar kota 3-5 hari kerja.",
       category: "shipping",
     },
     {
-      question: "Apakah ada garansi?",
+      question: "Dimana lokasi toko?",
       answer:
-        "Semua produk memiliki garansi resmi 1 tahun. Laptop dan PC mendapat garansi 2 tahun.",
-      category: "warranty",
+        "Lokasi kami di Kapuk, Jakarta Barat. Bisa datang langsung untuk ambil sendiri (pickup).",
+      category: "location",
     },
     {
-      question: "Metode pembayaran apa saja yang diterima?",
+      question: "Apakah bisa custom ukuran?",
       answer:
-        "Kami menerima transfer bank (BCA, Mandiri, BNI, BRI), e-wallet (GoPay, OVO, Dana), dan COD untuk area tertentu.",
-      category: "payment",
-    },
-    {
-      question: "Apakah bisa cicilan?",
-      answer:
-        "Untuk pembelian di atas Rp 3.000.000, kami menyediakan cicilan 0% hingga 12 bulan melalui kartu kredit tertentu.",
-      category: "payment",
-    },
-    {
-      question: "Bagaimana cara retur produk?",
-      answer:
-        "Retur dapat dilakukan dalam 7 hari setelah penerimaan jika produk cacat atau tidak sesuai. Hubungi admin untuk proses retur.",
-      category: "returns",
-    },
-    {
-      question: "Apakah tersedia custom build PC?",
-      answer:
-        "Ya, kami menerima pesanan custom build PC. Silakan ceritakan kebutuhan spesifikasi Anda dan kami akan berikan quotation.",
+        "Maaf, saat ini kami hanya menyediakan ukuran yang tersedia di katalog. Tapi kami bisa bantu carikan ukuran terdekat yang sesuai kebutuhan kakak.",
       category: "products",
+    },
+    {
+      question: "Metode pembayaran apa saja?",
+      answer:
+        "Kami menerima transfer bank (BCA, Mandiri) dan pembayaran via DOKU Wallet.",
+      category: "payment",
+    },
+    {
+      question: "Apakah ada minimal order?",
+      answer:
+        "Tidak ada minimal order. Kakak bisa pesan berapa pun sesuai kebutuhan.",
+      category: "order",
+    },
+    {
+      question: "Apa itu sablon?",
+      answer:
+        "Sablon adalah cetak logo/tulisan di permukaan dus. Biaya tambahan Rp 500 per sisi. Bisa 1-4 sisi.",
+      category: "products",
+    },
+    {
+      question: "Apa perbedaan Singlewall, C-Flute, dan Doublewall?",
+      answer:
+        "Singlewall: paling tipis & ekonomis, cocok untuk barang ringan. C-Flute: ketebalan sedang, lebih kuat. Doublewall: paling tebal & kuat, cocok untuk barang berat (>10kg).",
+      category: "products",
+    },
+    {
+      question: "Bagaimana cara order?",
+      answer:
+        "Cukup chat kami ukuran dan jumlah yang dibutuhkan, kami akan buatkan pesanan dan kirim link pembayaran.",
+      category: "order",
     },
   ];
 
-  // Delete existing FAQ entries and re-create
   await prisma.faqEntry.deleteMany({});
   for (const faq of faqEntries) {
     await prisma.faqEntry.create({
@@ -258,72 +496,33 @@ async function main() {
 
   console.log(`  ✅ ${faqEntries.length} FAQ entries seeded`);
 
-  // ─── Sample Customer ───────────────────────────────
-
-  await prisma.customer.upsert({
-    where: { phoneNumber: "6281234567890" },
-    create: {
-      phoneNumber: "6281234567890",
-      name: "Demo Customer",
-      email: "demo@example.com",
-    },
-    update: {
-      name: "Demo Customer",
-    },
-  });
-
-  console.log("  ✅ Sample customer seeded");
-
   // ─── Prompt Templates ──────────────────────────────
 
   const promptTemplates = [
     {
       slug: "intent-classification",
       name: "Intent Classification",
-      description:
-        "System prompt for classifying user intent from WhatsApp messages",
+      description: "System prompt for classifying user intent",
       category: "intent_classification",
-      content: `You are an intent classifier for a WhatsApp sales chatbot that sells computer & laptop products.
+      content: `You are an intent classifier for a WhatsApp chatbot that sells cardboard boxes (dus/kardus).
 Given the user message and current conversation stage, classify the intent and extract relevant entities.
 
 ## Valid intents
 {{validIntents}}
 
-## Intent descriptions
-- greeting: Greetings, salutations, opening messages
-- browse_catalog: Wants to see available products/catalog
-- ask_stock: Asking about product availability/stock
-- ask_price: Asking about product pricing
-- ask_product_detail: Asking for specs, features, or details of a specific product
-- ask_recommendation: Wants product suggestions based on needs/budget
-- compare_products: Wants to compare two or more products
-- calculate_price: Wants total/subtotal with shipping/tax/discount
-- objection_or_hesitation: Expressing doubt, price concern, or wanting to delay
-- create_order: Wants to place an order / buy / checkout
-- request_invoice: Requesting an invoice or bill
-- confirm_payment: Confirming they've made a payment / sending proof
-- ask_order_status: Asking about order tracking or delivery status
-- request_human_help: Wants to talk to a human agent / escalate
-- general_qa: General questions that don't fit other intents
-
-## Entity extraction
-Extract any relevant entities you can identify:
-- product_name: Product name mentioned (e.g. "Asus ROG", "MacBook Pro")
-- budget: Budget or price range mentioned (e.g. "10 juta", "under 5000000")
-- quantity: Number of items mentioned
-- order_number: Order number if mentioned
-- use_case: Intended usage (e.g. "gaming", "office work", "editing video")
-
 ## Current conversation stage: {{conversationStage}}
 
 ## Rules
 - Consider the conversation stage when the message is ambiguous
-- For short affirmative messages ("ok", "oke", "jadi", "lanjut") during pricing/order_confirm stage, classify as create_order
+- For short affirmative messages ("ok", "oke", "jadi", "lanjut", "boleh", "ya") during order_confirm stage, classify as confirm_order
+- If user mentions box dimensions or sizes, classify as consultation or ask_price
+- If user describes what they need to pack/ship, classify as consultation
+- If user asks urgently ("cepat", "urgent", "hari ini"), classify as urgent_order
 - Language may be Indonesian, English, or mixed
 - Respond ONLY with a JSON object, no other text
 
 ## Response format
-{"intent": "<intent>", "entities": {"product_name": null, "budget": null, "quantity": null, "order_number": null, "use_case": null}, "confidence": 0.0}`,
+{"intent": "<intent>", "entities": {"dimensions": null, "quantity": null, "material": null, "use_case": null, "order_number": null}, "confidence": 0.0}`,
       variables: ["validIntents", "conversationStage"],
       isActive: true,
     },
@@ -333,16 +532,16 @@ Extract any relevant entities you can identify:
       description:
         "System prompt for generating context-grounded WhatsApp replies",
       category: "grounded_reply",
-      content: `You are a WhatsApp sales assistant for a computer & laptop store.
+      content: `You are a WhatsApp sales assistant for a cardboard box supplier in Kapuk, Jakarta Barat.
 
 RULES:
 - Answer ONLY using the product data and facts provided below.
 - NEVER invent stock quantities, prices, or order statuses.
 - If you don't know, say you'll check with the team.
 - Keep replies short (1-3 paragraphs max) — this is WhatsApp.
-- Use friendly, professional Indonesian or English depending on customer language.
+- Use friendly Indonesian.
 - Format prices as "Rp" with thousand separators.
-- Use emoji sparingly to keep the tone warm 😊
+- Always recommend the best box for the customer's use case.
 
 CONVERSATION STAGE: {{conversationStage}}
 CUSTOMER: {{customerName}}
@@ -361,51 +560,6 @@ FAQ DATA:
         "faq",
         "orderContext",
       ],
-      isActive: true,
-    },
-    {
-      slug: "requirement-extraction",
-      name: "Requirement Extraction",
-      description:
-        "System prompt for extracting product requirements from user messages",
-      category: "requirement_extraction",
-      content: `You are a product requirements extractor for a computer & laptop sales chatbot.
-Analyze the user message and extract structured product requirements.
-
-Extract the following fields:
-- category: Product category (laptop, pc, monitor, accessories) or null
-- budgetMax: Maximum budget as a number in IDR, or null
-- quantity: Number of items needed, or null
-- useCase: Intended usage description (e.g. "gaming", "office", "design", "programming"), or null
-- specs: Object with specific requirements like {"ram": "16GB", "storage": "1TB SSD"}, or {}
-
-Respond ONLY with a JSON object:
-{"category": "string or null", "budgetMax": number or null, "quantity": number or null, "useCase": "string or null", "specs": {}}
-
-Do not include any other text.`,
-      variables: [],
-      isActive: true,
-    },
-    {
-      slug: "recommendation-explanation",
-      name: "Recommendation Explanation",
-      description:
-        "System prompt for explaining product recommendations to customers",
-      category: "recommendation_explanation",
-      content: `You are a WhatsApp sales assistant helping a customer choose a computer/laptop product.
-Based on the customer's request and the matched products, write a friendly recommendation.
-
-Guidelines:
-- Keep it concise (max 2 paragraphs) — this is WhatsApp
-- Use friendly, professional Indonesian or English depending on customer language
-- Format prices as "Rp" with thousand separators
-- Highlight why the primary product matches their needs
-- If an alternative exists, briefly mention it as a second option
-- NEVER invent data — only use the product info provided
-
-PRIMARY PRODUCT: {{primaryProduct}}
-{{alternativeProduct}}`,
-      variables: ["primaryProduct", "alternativeProduct"],
       isActive: true,
     },
   ];
