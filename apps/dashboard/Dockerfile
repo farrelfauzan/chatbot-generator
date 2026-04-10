@@ -1,27 +1,23 @@
-# ─── Stage 1: Install dependencies ───────────────────────────────────────────
-FROM node:24-alpine AS deps
+# ─── Stage 1: Build ──────────────────────────────────────────────────────────
+FROM node:24-alpine AS builder
 
 RUN corepack enable
 
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/dashboard/package.json ./apps/dashboard/
-COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/shared-types ./packages/shared-types
+COPY apps/dashboard ./apps/dashboard
 
 RUN pnpm install --frozen-lockfile
-
-# ─── Stage 2: Build ──────────────────────────────────────────────────────────
-FROM deps AS builder
 
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-COPY . .
-
+RUN cd packages/shared-types && pnpm build
 RUN cd apps/dashboard && pnpm build
 
-# ─── Stage 3: Production runner ──────────────────────────────────────────────
+# ─── Stage 2: Production runner ──────────────────────────────────────────────
 FROM node:24-alpine AS runner
 
 WORKDIR /app
