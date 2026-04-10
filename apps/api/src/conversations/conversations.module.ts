@@ -6,7 +6,6 @@ import { CONVERSATION_REPOSITORY } from './conversations.repository.interface';
 import { ConversationOrchestratorService } from './conversation-orchestrator.service';
 import { CustomersModule } from '../customers/customers.module';
 import { MessagesModule } from '../messages/messages.module';
-import { CatalogModule } from '../catalog/catalog.module';
 import { FaqModule } from '../faq/faq.module';
 import { OrdersModule } from '../orders/orders.module';
 import { InvoicesModule } from '../invoices/invoices.module';
@@ -14,12 +13,14 @@ import { PaymentsModule } from '../payments/payments.module';
 import { GowaModule } from '../gowa/gowa.module';
 import { ChatSessionModule } from '../chat-session/chat-session.module';
 import { SettingsModule } from '../settings/settings.module';
+import { CardboardModule } from '../cardboard/cardboard.module';
+import { CatalogImagesModule } from '../catalog-images/catalog-images.module';
+import { DokuModule } from '../doku/doku.module';
 
 @Module({
   imports: [
     CustomersModule,
     MessagesModule,
-    CatalogModule,
     FaqModule,
     OrdersModule,
     InvoicesModule,
@@ -27,6 +28,9 @@ import { SettingsModule } from '../settings/settings.module';
     GowaModule,
     ChatSessionModule,
     SettingsModule,
+    CardboardModule,
+    CatalogImagesModule,
+    DokuModule,
   ],
   controllers: [ConversationsController],
   providers: [

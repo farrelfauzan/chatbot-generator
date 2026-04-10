@@ -3,7 +3,8 @@ import OpenAI from 'openai';
 import { CustomersService } from '../customers/customers.service';
 import { ConversationsService } from './conversations.service';
 import { MessagesService } from '../messages/messages.service';
-import { CatalogService } from '../catalog/catalog.service';
+import { CardboardService } from '../cardboard/cardboard.service';
+import { CatalogImagesService } from '../catalog-images/catalog-images.service';
 import { FaqService } from '../faq/faq.service';
 import { OrdersService } from '../orders/orders.service';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -11,6 +12,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { GowaService } from '../gowa/gowa.service';
 import { ChatSessionService } from '../chat-session/chat-session.service';
 import { SettingsService } from '../settings/settings.service';
+import { DokuService } from '../doku/doku.service';
 import { appConfig } from '../app.config';
 import type { GowaInboundMessage } from '@chatbot-generator/shared-types';
 
@@ -20,16 +22,16 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'search_products',
+      name: 'search_boxes',
       description:
-        'Search products by name, keyword, or category. Use when the customer asks about a specific product, wants to browse, or mentions a product name.',
+        'Search cardboard boxes by keyword, dimensions, material, or use case. Use when customer mentions a specific size or type.',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
             description:
-              'Search keyword: product name, category, or description keyword',
+              'Search keyword: size (e.g. "30x20x15"), type (e.g. "pizza"), or material (e.g. "doublewall")',
           },
         },
         required: ['query'],
@@ -41,14 +43,19 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'list_catalog',
       description:
-        'List all active products in the catalog. Omit the category parameter to list ALL products across all categories. Use when the customer wants to see what is available, says "semua", picks menu option 1, or says "katalog".',
+        'List available cardboard boxes. Can filter by type and material. Use when customer wants to see all available sizes.',
       parameters: {
         type: 'object',
         properties: {
-          category: {
+          type: {
             type: 'string',
             description:
-              'Optional category filter (e.g. Laptop, PC, Monitor, Accessories). Leave empty to list ALL products.',
+              'Box type: "dus_baru" or "dus_pizza". Leave empty for all.',
+          },
+          material: {
+            type: 'string',
+            description:
+              'Material filter: "singlewall", "cflute", or "doublewall". Leave empty for all.',
           },
         },
       },
@@ -57,19 +64,43 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'get_product_detail',
+      name: 'recommend_box',
       description:
-        'Get full details of a specific product by its exact name. Use when the customer asks for specs, stock, or price of a known product.',
+        'Recommend the best box for a specific use case. ALWAYS call this immediately when customer describes what they need to pack. Do NOT ask clarifying questions first — just call this tool with the use case description.',
       parameters: {
         type: 'object',
         properties: {
-          product_name: {
+          use_case: {
             type: 'string',
-            description: 'The exact or partial name of the product',
+            description:
+              'Full description of what the customer needs: item type, quantity, weight, etc. Example: "300 bola golf langsung tanpa kemasan", "10 kg ikan frozen"',
+          },
+          is_heavy: {
+            type: 'boolean',
+            description:
+              'Whether the total weight is heavy (>10kg). If true, recommend doublewall material.',
           },
         },
-        required: ['product_name'],
+        required: ['use_case'],
       },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'send_catalog_images',
+      description:
+        'Send catalog images (photos of available cardboard boxes) to the customer via WhatsApp. Use when customer asks to see the catalog visually or says "lihat katalog", "foto", "gambar".',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'check_ready_stock',
+      description:
+        'Check which boxes are in ready stock for immediate delivery. Use when customer needs boxes urgently ("cepat", "urgent", "hari ini", "segera", "buru-buru").',
+      parameters: { type: 'object', properties: {} },
     },
   },
   {
@@ -77,27 +108,33 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'create_order',
       description:
-        'Create a purchase order for a customer. Supports ordering one or multiple products at once. Use when the customer explicitly confirms they want to buy/order.',
+        'Create a purchase order for cardboard boxes. Use when customer confirms they want to order.',
       parameters: {
         type: 'object',
         properties: {
           items: {
             type: 'array',
-            description: 'List of products to order',
+            description: 'List of boxes to order',
             items: {
               type: 'object',
               properties: {
-                product_name: {
+                box_name: {
                   type: 'string',
-                  description: 'Name of the product to order',
+                  description:
+                    'Name or size of the box (e.g. "Dus 30x20x15 Singlewall")',
                 },
                 quantity: {
                   type: 'number',
-                  description: 'Quantity to order (default 1)',
+                  description: 'Quantity to order',
                 },
               },
-              required: ['product_name'],
+              required: ['box_name', 'quantity'],
             },
+          },
+          sablon_sides: {
+            type: 'number',
+            description:
+              'Number of sides for sablon/printing (0-4). 0 = no sablon.',
           },
         },
         required: ['items'],
@@ -108,36 +145,8 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'get_order_status',
-      description:
-        'Get the latest order status for the current customer. Use when the customer asks about their order.',
+      description: 'Get the latest order status for the current customer.',
       parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'generate_invoice',
-      description:
-        'Generate an invoice for the latest order. Use when the customer requests an invoice or bill.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'confirm_payment',
-      description:
-        'Confirm payment for the latest order. Use when the customer says they have paid or sends proof of transfer.',
-      parameters: {
-        type: 'object',
-        properties: {
-          reference: {
-            type: 'string',
-            description: 'Payment reference or note from the customer',
-          },
-        },
-        required: ['reference'],
-      },
     },
   },
   {
@@ -145,14 +154,14 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'get_faq',
       description:
-        'Get FAQ answers. Use when the customer has general questions about shipping, warranty, payment methods, returns, etc.',
+        'Get FAQ answers about shipping, payment, sablon, materials, location, returns, etc.',
       parameters: {
         type: 'object',
         properties: {
           topic: {
             type: 'string',
             description:
-              'Topic to look up: shipping, warranty, payment, returns, products',
+              'Topic to look up: shipping, payment, products, location, order, sablon',
           },
         },
       },
@@ -162,44 +171,60 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'get_payment_info',
-      description:
-        'Get bank account / payment transfer information. Use when the customer needs to know where to transfer payment.',
+      description: 'Get bank account / payment transfer information.',
       parameters: { type: 'object', properties: {} },
     },
   },
 ];
 
-const SYSTEM_PROMPT = `You are a friendly WhatsApp sales assistant for a computer & laptop store.
+const SYSTEM_PROMPT = `You are a friendly WhatsApp sales assistant for a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
 
 CRITICAL RULES:
-- You MUST use the provided tools to get product data. NEVER make up product names, prices, or stock from memory.
-- Tool results are already formatted for WhatsApp. Present them to the customer as-is, you may add a brief intro line but do NOT reformat or reorder the data.
-- When a customer asks to see the catalog or products, you MUST call list_catalog tool first.
-- When a customer asks about a specific product, you MUST call search_products or get_product_detail first.
-- When a customer asks about orders, you MUST call get_order_status first.
-- When a customer asks about payment info, you MUST call get_payment_info first.
-- When a customer asks FAQ-type questions, you MUST call get_faq first.
-- NEVER list products without calling a tool first. If you don't have tool results, call the tool.
+- You MUST use the provided tools to get product data. NEVER make up sizes, prices, or stock from memory.
+- When a tool returns formatted text, you MUST copy-paste the ENTIRE tool output into your reply verbatim. Add only a brief 1-line intro before it. Do NOT summarize, shorten, or omit any items from the tool output.
+- When customer asks for catalog or available boxes, call list_catalog or send_catalog_images.
+- When customer describes what they need (use case), call recommend_box.
+- When customer asks urgently, call check_ready_stock.
+- NEVER list products without calling a tool first.
+- When customer wants to order/buy, you MUST call create_order. NEVER say "sedang diproses" without calling the tool.
+- When customer asks about payment or wants to pay, you MUST call get_payment_info. NEVER make up bank account numbers.
+- NEVER fabricate payment information, bank accounts, or prices. ALWAYS call the appropriate tool.
+
+CONSULTATION MODE — IMPORTANT:
+- When a customer describes what they need to pack, IMMEDIATELY call recommend_box. Do NOT ask for dimensions first.
+- NEVER ask the customer for box measurements. You are the expert — estimate the best size yourself based on the item description.
+- For heavy items (>10kg), set is_heavy=true to get doublewall recommendations.
+- If the customer says something vague like "bungkus bola golf" or "kardus untuk baju", just call recommend_box immediately with the use case. The tool will find suitable options.
+- Custom sizes are NOT available — always recommend the closest match from our catalog.
+- You should NEVER respond with just text when the customer describes a packing need. ALWAYS call recommend_box.
 
 FORMATTING RULES:
-- Respond in the same language the customer uses (Indonesian or English).
+- Respond in Indonesian (Bahasa Indonesia).
 - Keep replies short (1-3 paragraphs max) — this is WhatsApp.
-- Format prices as "Rp" with thousand separators (e.g. Rp 12.500.000).
-- Use WhatsApp formatting: *bold* for emphasis, no markdown links.
+- Format prices as "Rp" with thousand separators (e.g. Rp 1.200).
+- Use WhatsApp formatting: *bold* for emphasis.
 
-BEHAVIOR:
-- When greeting a customer, use their name if available from the CUSTOMER INFO section.
-- When a customer greets you (e.g. "hi", "halo", "hey"), greet them by name and present a short menu of what you can help with:
-  1. 🛒 Lihat katalog produk
-  2. 🔍 Cari produk tertentu
-  3. 📦 Cek status pesanan
-  4. 💳 Info pembayaran / transfer
-  5. ❓ FAQ (garansi, pengiriman, retur, dll)
-- When a customer picks a menu number or says "katalog"/"lihat produk"/"semua", call list_catalog immediately.
-- When a customer refers to a product by number (e.g. "no 3", "yang ke-2", "3 dan 8"), look at the [REF: ...] line in the catalog tool output to find the exact product name for each number. NEVER guess — always use the reference map.
-- Be helpful and guide the customer through the buying process naturally.
-- Use emoji sparingly to keep the tone warm 😊.
-- If you can't find what the customer wants, suggest alternatives from the catalog.`;
+FOLLOW-UP BEHAVIOR:
+- After every recommendation, ALWAYS follow up with options.
+- Guide the customer through the buying process naturally.
+- Mention sablon option (Rp 500/sisi) if the customer hasn't asked about it.
+
+GREETING:
+- When greeting a customer, say: "Halo, kak {{customerName}} 👋 lagi cari dus ukuran apa kahh? Lokasi kita di Kapuk, Jakarta Barat ya 📍"
+- Do NOT show a numbered menu. Let the conversation flow naturally.
+
+URGENT MODE:
+- If customer mentions urgency ("cepat", "urgent", "hari ini", "buru-buru"), call check_ready_stock.
+- Say: "Untuk kebutuhan cepat, kami sarankan pilih ready stock."
+
+SABLON INFO:
+- Sablon = printing on the box surface. Price: Rp 500 per side. Can do 1-4 sides.
+
+PAYMENT INFO:
+- We accept DOKU online payment (VA, QRIS, e-wallet, credit card) AND bank transfer.
+- DOKU payment link will be generated automatically after order is created.
+- When customer asks about payment, call get_payment_info tool. NEVER say we don't accept DOKU.
+- ALWAYS mention both options: online payment via DOKU and manual bank transfer.`;
 
 @Injectable()
 export class ConversationOrchestratorService {
@@ -214,7 +239,8 @@ export class ConversationOrchestratorService {
     private readonly customers: CustomersService,
     private readonly conversations: ConversationsService,
     private readonly messages: MessagesService,
-    private readonly catalog: CatalogService,
+    private readonly cardboard: CardboardService,
+    private readonly catalogImages: CatalogImagesService,
     private readonly faq: FaqService,
     private readonly orders: OrdersService,
     private readonly invoices: InvoicesService,
@@ -222,6 +248,7 @@ export class ConversationOrchestratorService {
     private readonly gowa: GowaService,
     private readonly chatSession: ChatSessionService,
     private readonly settings: SettingsService,
+    private readonly doku: DokuService,
   ) {}
 
   async handleInboundMessage(payload: GowaInboundMessage): Promise<void> {
@@ -272,7 +299,12 @@ export class ConversationOrchestratorService {
         : '';
     const customerContext = `\nCUSTOMER INFO:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phoneNumber}\n${stageHint}`;
     const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT + customerContext },
+      {
+        role: 'system',
+        content:
+          SYSTEM_PROMPT.replace('{{customerName}}', customer.name || 'kakak') +
+          customerContext,
+      },
     ];
 
     // Include last 20 messages for context
@@ -292,17 +324,48 @@ export class ConversationOrchestratorService {
       );
 
     if (isAffirmative && conversation.stage === 'order_confirm') {
-      const paymentInfo = await this.executeTool(
-        'get_payment_info',
-        {},
-        customer,
-        conversation,
-      );
       const order = await this.orders.findLatestByCustomerId(customer.id);
+      if (!order) {
+        const reply =
+          'Belum ada pesanan aktif. Silakan pilih produk terlebih dahulu ya kak.';
+        await this.messages.storeOutbound(conversation.id, reply);
+        await this.conversations.touchOutbound(conversation.id);
+        await this.gowa.sendText(payload.phone, reply);
+        return;
+      }
+
+      // Try DOKU payment link first, fallback to bank transfer
+      let paymentSection: string;
+      if (this.doku.isConfigured) {
+        const dokuResult = await this.doku.createInvoice({
+          orderId: order.orderNumber,
+          amount: Number(order.totalAmount),
+          customerName: customer.name || 'Customer',
+          customerPhone: customer.phoneNumber,
+          description: `Pembayaran pesanan ${order.orderNumber}`,
+        });
+        if (dokuResult) {
+          paymentSection = [
+            '💳 *Pembayaran Online*',
+            `Klik link berikut untuk bayar:`,
+            dokuResult.invoiceUrl,
+            '',
+            '_Link berlaku 24 jam_',
+          ].join('\n');
+        } else {
+          const bankInfo = await this.settings.getPaymentInstructions();
+          paymentSection = bankInfo || 'Informasi pembayaran belum tersedia.';
+        }
+      } else {
+        const bankInfo = await this.settings.getPaymentInstructions();
+        paymentSection = bankInfo || 'Informasi pembayaran belum tersedia.';
+      }
+
       const reply = [
-        `Baik, berikut info pembayaran untuk pesanan *${order?.orderNumber ?? ''}*:`,
+        `Baik kak, berikut info pembayaran untuk pesanan *${order.orderNumber}*:`,
+        `Total: *${this.formatRupiah(Number(order.totalAmount))}*`,
         '',
-        paymentInfo,
+        paymentSection,
         '',
         'Setelah transfer, kirimkan bukti pembayaran di sini ya 😊',
       ].join('\n');
@@ -316,7 +379,18 @@ export class ConversationOrchestratorService {
     // 6. Run the agent loop (LLM + tool calls)
     const reply = await this.runAgentLoop(chatMessages, customer, conversation);
 
-    // 6. Store outbound & send
+    // Guard: never send empty message
+    if (!reply || !reply.trim()) {
+      this.logger.warn('Agent loop returned empty reply, sending fallback');
+      const fallback =
+        'Maaf, saya tidak bisa memproses pesan Anda saat ini. Bisa coba ulangi? 🙏';
+      await this.messages.storeOutbound(conversation.id, fallback);
+      await this.conversations.touchOutbound(conversation.id);
+      await this.gowa.sendText(payload.phone, fallback);
+      return;
+    }
+
+    // 7. Store outbound & send
     await this.messages.storeOutbound(conversation.id, reply);
     await this.conversations.touchOutbound(conversation.id);
     await this.gowa.sendText(payload.phone, reply);
@@ -328,22 +402,22 @@ export class ConversationOrchestratorService {
     conversation: any,
     maxIterations = 5,
   ): Promise<string> {
+    // Detect simple greetings that don't need tools
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     const userText =
       typeof lastUserMsg?.content === 'string'
         ? lastUserMsg.content.trim().toLowerCase()
         : '';
-
-    // Simple greetings never need tools
     const isGreeting =
       /^(hi|halo|hey|hello|hai|p|hei|selamat|assalam|good\s*(morning|afternoon|evening))[\s!.]*$/i.test(
         userText,
       );
 
+    let lastToolResult: string | null = null;
+
     for (let i = 0; i < maxIterations; i++) {
-      // Force tool call on first iteration unless it's a plain greeting.
-      // This model ignores tool_choice:'auto', so we must force it.
-      // On subsequent iterations (after tool results), use 'auto' to let it compose a reply.
+      // Force tool call on first iteration for non-greetings.
+      // This model ignores tool_choice:'auto' and never calls tools otherwise.
       const shouldForceTools = i === 0 && !isGreeting;
 
       const completion = await this.openai.chat.completions.create({
@@ -378,6 +452,8 @@ export class ConversationOrchestratorService {
             `Tool: ${toolCall.function.name}(${toolCall.function.arguments}) → ${result.substring(0, 200)}`,
           );
 
+          lastToolResult = result;
+
           messages.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -388,25 +464,50 @@ export class ConversationOrchestratorService {
         continue; // Loop back to let LLM process tool results
       }
 
-      // No tool calls — if we forced tools and model didn't comply, retry with auto
+      // No tool calls — check if model returned tool-call-like text instead
+      const contentText = assistantMsg.content?.trim() ?? '';
+      const toolCallTextMatch = contentText.match(
+        /(?:call|invoke|execute)[:\s]+(?:default_api\.)?([a-z_]+)\s*\(/i,
+      );
+
+      if (toolCallTextMatch) {
+        // Model wrote a tool call as text — execute it manually
+        const toolName = toolCallTextMatch[1];
+        this.logger.warn(
+          `Model returned tool call as text: "${contentText}" — executing ${toolName} manually`,
+        );
+        const result = await this.executeTool(
+          toolName,
+          {},
+          customer,
+          conversation,
+        );
+        lastToolResult = result;
+        messages.push({
+          role: 'assistant',
+          content: result,
+        });
+        continue;
+      }
+
       if (shouldForceTools && i === 0) {
         this.logger.warn(
           'tool_choice=required but model returned no tool calls — retrying with auto',
         );
-        // Push the (empty) assistant message so context is preserved
-        if (assistantMsg.content) {
+        if (contentText) {
           messages.push(assistantMsg);
         }
         continue;
       }
 
-      return (
-        assistantMsg.content?.trim() ??
-        'Maaf, saya tidak bisa memproses pesan Anda saat ini.'
-      );
+      const finalReply =
+        contentText ||
+        lastToolResult ||
+        'Maaf, saya tidak bisa memproses pesan Anda saat ini.';
+      return finalReply;
     }
 
-    return 'Maaf, saya mengalami kesulitan memproses permintaan Anda. Bisa coba ulangi? 🙏';
+    return 'Maaf kak, saya mengalami kesulitan memproses permintaan. Bisa coba ulangi? 🙏';
   }
 
   private formatRupiah(n: number): string {
@@ -421,84 +522,192 @@ export class ConversationOrchestratorService {
   ): Promise<string> {
     try {
       switch (name) {
-        case 'search_products': {
-          const results = await this.catalog.search(args.query);
+        case 'search_boxes': {
+          const results = await this.cardboard.search(args.query);
           if (results.length === 0) {
-            return 'Tidak ditemukan produk yang cocok dengan pencarian.';
+            return 'Tidak ditemukan dus yang cocok dengan pencarian.';
           }
-          const lines = results.map(
-            (p, i) =>
-              `${i + 1}. *${p.name}*\n   ${p.category?.name ?? ''} — ${this.formatRupiah(p.price)}\n   Stok: ${p.stockQty > 0 ? p.stockQty : 'Habis'}`,
-          );
+          const lines = results
+            .slice(0, 10)
+            .map(
+              (p, i) =>
+                `${i + 1}. *${p.name}*\n   ${this.formatRupiah(Number(p.pricePerPcs))}/pcs — Stok: ${p.stockQty > 0 ? p.stockQty : 'Habis'}${p.isReadyStock ? ' ✅ Ready' : ''}`,
+            );
           return `Hasil pencarian "${args.query}":\n\n${lines.join('\n\n')}`;
         }
 
         case 'list_catalog': {
-          const products = await this.catalog.listActive(args.category);
+          const products = await this.cardboard.findAll({
+            type: args.type,
+            material: args.material,
+          });
           if (products.length === 0) {
             return 'Belum ada produk yang tersedia saat ini.';
           }
-          // Flat numbered list — no category grouping to avoid LLM confusion
-          const lines = products.map(
-            (p, i) =>
-              `${i + 1}. *${p.name}* (${p.category?.name ?? '-'})\n   ${this.formatRupiah(p.price)} — Stok: ${p.stockQty > 0 ? p.stockQty : 'Habis'}`,
-          );
-          // Add a reference map at the end for the LLM to use
-          const refMap = products
-            .map((p, i) => `${i + 1}=${p.name}`)
-            .join(', ');
-          return `${lines.join('\n')}\n\n[REF: ${refMap}]`;
+
+          // Group by type for cleaner output, limit to 15 per group
+          const grouped = new Map<string, typeof products>();
+          for (const p of products) {
+            const key = p.type;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(p);
+          }
+
+          const sections: string[] = [];
+          let idx = 0;
+          const refParts: string[] = [];
+          for (const [type, items] of grouped) {
+            const label = type === 'dus_pizza' ? '🍕 Dus Pizza' : '📦 Dus Baru';
+            const limited = items.slice(0, 15);
+            const lines = limited.map((p) => {
+              idx++;
+              refParts.push(`${idx}=${p.name}`);
+              return `${idx}. *${p.name}*\n   ${this.formatRupiah(Number(p.pricePerPcs))}/pcs — Stok: ${p.stockQty > 0 ? p.stockQty : 'Habis'}${p.isReadyStock ? ' ✅' : ''}`;
+            });
+            const moreText =
+              items.length > 15
+                ? `\n   _...dan ${items.length - 15} ukuran lainnya_`
+                : '';
+            sections.push(`${label}\n${lines.join('\n')}${moreText}`);
+          }
+
+          return `📦 *Katalog Dus*\n\n${sections.join('\n\n')}\n\n[REF: ${refParts.join(', ')}]\n\n💡 Sablon tersedia: +Rp 500/sisi`;
         }
 
-        case 'get_product_detail': {
-          const results = await this.catalog.search(args.product_name);
-          if (results.length === 0) {
-            return 'Produk tidak ditemukan.';
+        case 'recommend_box': {
+          const material = args.is_heavy ? 'doublewall' : undefined;
+
+          // Get a variety of sizes — small, medium, large
+          const allProducts = await this.cardboard.findAll({
+            material,
+          });
+
+          if (allProducts.length === 0) {
+            return 'Maaf, tidak ada dus yang sesuai saat ini.';
           }
-          const p = results[0];
-          return [
-            `*${p.name}*`,
-            `Kategori: ${p.category?.name ?? '-'}`,
-            `Harga: ${this.formatRupiah(p.price)}`,
-            `Stok: ${p.stockQty > 0 ? `${p.stockQty} unit` : 'Habis'}`,
-            p.description ? `\n${p.description}` : '',
-          ]
-            .filter(Boolean)
-            .join('\n');
+
+          // Sort by surface area and pick small, medium, large options
+          const sorted = allProducts
+            .filter((p) => p.stockQty > 0)
+            .sort((a, b) => Number(a.surfaceArea) - Number(b.surfaceArea));
+
+          if (sorted.length === 0) {
+            return 'Maaf, semua stok sedang habis saat ini.';
+          }
+
+          // Pick 3 spread options: small-ish, medium, large
+          const pickIdx = [
+            Math.floor(sorted.length * 0.2),
+            Math.floor(sorted.length * 0.5),
+            Math.floor(sorted.length * 0.8),
+          ];
+          const picks = [...new Set(pickIdx)].map(
+            (i) => sorted[Math.min(i, sorted.length - 1)],
+          );
+
+          const lines = picks.map((box, i) => {
+            const label =
+              i === 0
+                ? 'Opsi A (Kecil)'
+                : i === 1
+                  ? 'Opsi B (Sedang)'
+                  : 'Opsi C (Besar)';
+            return [
+              `📦 *${label}*: ${box.name}`,
+              `   Ukuran: ${box.panjang}x${box.lebar}x${box.tinggi} cm`,
+              `   Material: ${box.material}`,
+              `   Harga: ${this.formatRupiah(Number(box.pricePerPcs))}/pcs`,
+              `   Stok: ${box.stockQty > 0 ? `${box.stockQty} pcs` : 'Habis'}${box.isReadyStock ? ' ✅ Ready Stock' : ''}`,
+              box.leadTimeDays ? `   Lead time: ~${box.leadTimeDays} hari` : '',
+            ]
+              .filter(Boolean)
+              .join('\n');
+          });
+
+          return `Untuk kebutuhan: *${args.use_case}*\n\n${lines.join('\n\n')}\n\nSilakan pilih yang paling sesuai atau jika ingin alternatif lain bisa diinformasikan 😊`;
+        }
+
+        case 'send_catalog_images': {
+          const images = await this.catalogImages.findAll();
+          if (images.length === 0) {
+            return 'Foto katalog belum tersedia. Silakan tanyakan ukuran yang dibutuhkan.';
+          }
+
+          const maxImages = images.slice(0, 3);
+          for (const img of maxImages) {
+            await this.gowa.sendImage(
+              customer.phoneNumber,
+              img.imageUrl,
+              img.title + (img.description ? `\n${img.description}` : ''),
+            );
+          }
+
+          const extra =
+            images.length > 3
+              ? `\n\nMasih ada ${images.length - 3} foto lainnya, mau lihat lagi?`
+              : '';
+          return `Kami sudah kirimkan ${maxImages.length} foto katalog ya kak. Ada ukuran yang cocok, atau mau konsultasi dulu? 😊${extra}`;
+        }
+
+        case 'check_ready_stock': {
+          const readyStock = await this.cardboard.findReadyStock();
+          if (readyStock.length === 0) {
+            return 'Maaf, saat ini tidak ada stok ready. Untuk custom membutuhkan waktu 3-7 hari kerja.';
+          }
+
+          const lines = readyStock
+            .slice(0, 10)
+            .map(
+              (p, i) =>
+                `${i + 1}. *${p.name}*\n   ${this.formatRupiah(Number(p.pricePerPcs))}/pcs — Stok: ${p.stockQty}`,
+            );
+
+          return `⚡ *Ready Stock (Bisa Langsung Kirim)*\n\n${lines.join('\n\n')}\n\nUntuk custom ukuran membutuhkan waktu sekitar 3-7 hari. Tapi akan kita usahakan secepatnya! 💪`;
         }
 
         case 'create_order': {
-          // Support both old single-item format and new multi-item format
-          const rawItems: { product_name: string; quantity?: number }[] =
-            args.items ?? [
-              { product_name: args.product_name, quantity: args.quantity },
-            ];
-
-          const orderItems: { productId: string; quantity: number }[] = [];
+          const rawItems: { box_name: string; quantity: number }[] =
+            args.items ?? [];
+          const sablonSides = args.sablon_sides ?? 0;
+          const orderItems: { cardboardProductId: string; quantity: number }[] =
+            [];
           const itemLines: string[] = [];
 
           for (const item of rawItems) {
-            const matches = await this.catalog.search(item.product_name);
+            const matches = await this.cardboard.search(item.box_name);
             if (matches.length === 0) {
-              return `Produk "${item.product_name}" tidak ditemukan. Coba cari dengan kata kunci lain.`;
+              return `Dus "${item.box_name}" tidak ditemukan. Coba sebutkan ukuran yang lebih spesifik.`;
             }
+
             const product = matches[0];
             const qty = item.quantity ?? 1;
 
             if (product.stockQty < qty) {
-              return `Stok *${product.name}* tidak cukup. Tersedia: ${product.stockQty} unit.`;
+              return `Stok *${product.name}* tidak cukup. Tersedia: ${product.stockQty} pcs.`;
             }
 
-            orderItems.push({ productId: product.id, quantity: qty });
-            itemLines.push(
-              `- ${product.name} x${qty} @ ${this.formatRupiah(product.price)} = ${this.formatRupiah(product.price * qty)}`,
-            );
+            const sablonCost = sablonSides * 500 * qty;
+            const lineTotal = Number(product.pricePerPcs) * qty + sablonCost;
+
+            orderItems.push({
+              cardboardProductId: product.id,
+              quantity: qty,
+            });
+
+            let line = `- ${product.name} x${qty} @ ${this.formatRupiah(Number(product.pricePerPcs))} = ${this.formatRupiah(Number(product.pricePerPcs) * qty)}`;
+            if (sablonSides > 0) {
+              line += `\n  + Sablon ${sablonSides} sisi = ${this.formatRupiah(sablonCost)}`;
+            }
+            itemLines.push(line);
           }
 
           const order = await this.orders.create({
             customerId: customer.id,
             conversationId: conversation.id,
-            items: orderItems,
+            items: orderItems.map((i) => ({
+              productId: i.cardboardProductId,
+              quantity: i.quantity,
+            })),
           });
 
           await this.conversations.update(conversation.id, {
@@ -512,6 +721,8 @@ export class ConversationOrchestratorService {
             ...itemLines,
             '',
             `*Total: ${this.formatRupiah(Number(order.totalAmount))}*`,
+            '',
+            'Lanjut ke pembayaran? 😊',
           ].join('\n');
         }
 
@@ -521,41 +732,13 @@ export class ConversationOrchestratorService {
             return 'Belum ada pesanan yang tercatat.';
           }
           return [
-            `📦 *Status Pesanan*`,
+            '📦 *Status Pesanan*',
             `No. Pesanan: *${order.orderNumber}*`,
             `Status: ${order.status}`,
             `Total: ${this.formatRupiah(Number(order.totalAmount))}`,
+            '',
+            'Pesanan sedang kami proses ya kak 🙏',
           ].join('\n');
-        }
-
-        case 'generate_invoice': {
-          const order = await this.orders.findLatestByCustomerId(customer.id);
-          if (!order) {
-            return 'Belum ada pesanan untuk dibuatkan invoice.';
-          }
-          const invoice = await this.invoices.generateForOrder(
-            order.id,
-            customer.id,
-          );
-          return [
-            '🧾 *Invoice*',
-            `No. Invoice: *${invoice.invoiceNumber}*`,
-            `Total: ${this.formatRupiah(Number(invoice.totalAmount))}`,
-          ].join('\n');
-        }
-
-        case 'confirm_payment': {
-          const order = await this.orders.findLatestByCustomerId(customer.id);
-          if (!order) {
-            return 'Tidak ada pesanan aktif untuk konfirmasi pembayaran.';
-          }
-          await this.payments.create({
-            orderId: order.id,
-            customerId: customer.id,
-            amount: Number(order.totalAmount),
-            referenceNumber: args.reference ?? '',
-          });
-          return `✅ Pembayaran untuk pesanan *${order.orderNumber}* berhasil dikonfirmasi. Terima kasih!`;
         }
 
         case 'get_faq': {
@@ -570,7 +753,7 @@ export class ConversationOrchestratorService {
               )
             : entries;
           if (filtered.length === 0) {
-            return 'Tidak ada FAQ yang cocok dengan topik tersebut.';
+            return 'Tidak ada FAQ yang cocok. Coba tanyakan langsung ya kak.';
           }
           const faqLines = filtered.map(
             (f, i) => `${i + 1}. *${f.question}*\n   ${f.answer}`,
@@ -579,8 +762,58 @@ export class ConversationOrchestratorService {
         }
 
         case 'get_payment_info': {
-          const instructions = await this.settings.getPaymentInstructions();
-          return instructions || 'Informasi pembayaran belum tersedia.';
+          const latestOrder = await this.orders.findLatestByCustomerId(
+            customer.id,
+          );
+          const bankInfo = await this.settings.getPaymentInstructions();
+
+          // If there's an active order and DOKU is configured, generate payment link
+          if (latestOrder && this.doku.isConfigured) {
+            const dokuResult = await this.doku.createInvoice({
+              orderId: latestOrder.orderNumber,
+              amount: Number(latestOrder.totalAmount),
+              customerName: customer.name || 'Customer',
+              customerPhone: customer.phoneNumber,
+              description: `Pembayaran pesanan ${latestOrder.orderNumber}`,
+            });
+            if (dokuResult) {
+              return [
+                '💳 *Pembayaran Online (DOKU)*',
+                `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
+                '',
+                'Klik link berikut untuk bayar:',
+                dokuResult.invoiceUrl,
+                '',
+                '_Bisa bayar via VA, QRIS, e-wallet, atau kartu kredit._',
+                '_Link berlaku 24 jam._',
+                '',
+                'Atau transfer manual:',
+                bankInfo ?? '',
+              ]
+                .filter(Boolean)
+                .join('\n');
+            }
+          }
+
+          // No active order but DOKU is configured — inform payment methods
+          if (this.doku.isConfigured) {
+            return [
+              '💳 *Metode Pembayaran*',
+              '',
+              '1️⃣ *Pembayaran Online (DOKU)* — VA, QRIS, e-wallet, kartu kredit',
+              '   Link pembayaran otomatis dikirim setelah pesanan dibuat.',
+              '',
+              '2️⃣ *Transfer Bank Manual*',
+              bankInfo ?? '',
+              '',
+              'Silakan buat pesanan dulu, nanti link pembayaran DOKU akan langsung dikirim ya kak 😊',
+            ]
+              .filter(Boolean)
+              .join('\n');
+          }
+
+          // DOKU not configured — bank transfer only
+          return bankInfo || 'Informasi pembayaran belum tersedia.';
         }
 
         default:
@@ -588,7 +821,7 @@ export class ConversationOrchestratorService {
       }
     } catch (err: any) {
       this.logger.error(`Tool ${name} failed: ${err.message}`);
-      return JSON.stringify({ error: err.message });
+      return 'Maaf, terjadi kesalahan saat memproses. Silakan coba lagi.';
     }
   }
 }
