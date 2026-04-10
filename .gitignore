@@ -11,6 +11,7 @@ packages/database/generated
 packages/database/.env
 apps/api/.env
 apps/dashboard/.env
+.env
 
 # IDEs and editors
 /.idea
