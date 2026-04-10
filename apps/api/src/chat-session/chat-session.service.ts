@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
@@ -16,7 +16,7 @@ export interface SessionData {
 const SESSION_PREFIX = 'chat:session:';
 
 @Injectable()
-export class ChatSessionService {
+export class ChatSessionService implements OnModuleInit {
   private readonly logger = new Logger(ChatSessionService.name);
   private readonly ttlSeconds = appConfig.session.ttlMinutes * 60;
 
@@ -25,6 +25,24 @@ export class ChatSessionService {
     @InjectQueue(SESSION_EXPIRY_QUEUE)
     private readonly expiryQueue: Queue,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    // Clear all chat sessions on startup so every conversation starts fresh
+    const keys = await this.redis.keys(`${SESSION_PREFIX}*`);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+      this.logger.log(`Cleared ${keys.length} stale chat sessions on startup`);
+    }
+
+    // Also clear dedup and lock keys
+    const dedupKeys = await this.redis.keys('dedup:*');
+    const lockKeys = await this.redis.keys('lock:phone:*');
+    const allKeys = [...dedupKeys, ...lockKeys];
+    if (allKeys.length > 0) {
+      await this.redis.del(...allKeys);
+      this.logger.log(`Cleared ${allKeys.length} dedup/lock keys on startup`);
+    }
+  }
 
   private key(phone: string) {
     return `${SESSION_PREFIX}${phone}`;

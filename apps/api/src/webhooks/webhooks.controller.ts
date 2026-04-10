@@ -103,7 +103,13 @@ export class WebhooksController {
     // Deduplicate: skip if we already processed this messageId
     if (normalized.messageId) {
       const dedupeKey = `dedup:${normalized.messageId}`;
-      const alreadySeen = await this.redis.set(dedupeKey, '1', 'EX', 300, 'NX');
+      const alreadySeen = await this.redis.set(
+        dedupeKey,
+        '1',
+        'EX',
+        3600,
+        'NX',
+      );
       if (!alreadySeen) {
         this.logger.debug(
           `Duplicate message ${normalized.messageId}, skipping`,
@@ -112,10 +118,21 @@ export class WebhooksController {
       }
     }
 
-    this.logger.log(`Inbound from ${phone}: ${message.substring(0, 80)}`);
+    // Per-phone concurrency lock — only one message processed at a time per phone
+    const lockKey = `lock:phone:${phone}`;
+    const acquired = await this.redis.set(lockKey, '1', 'EX', 60, 'NX');
+    if (!acquired) {
+      this.logger.warn(`Phone ${phone} already being processed, skipping`);
+      return { status: 'ok', skipped: true, reason: 'concurrent' };
+    }
 
-    await this.orchestrator.handleInboundMessage(normalized);
-    return { status: 'ok' };
+    try {
+      this.logger.log(`Inbound from ${phone}: ${message.substring(0, 80)}`);
+      await this.orchestrator.handleInboundMessage(normalized);
+      return { status: 'ok' };
+    } finally {
+      await this.redis.del(lockKey);
+    }
   }
 
   private handleMessageAck(payload: Record<string, unknown>) {
