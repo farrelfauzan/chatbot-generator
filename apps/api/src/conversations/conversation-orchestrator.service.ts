@@ -181,7 +181,8 @@ const SYSTEM_PROMPT = `You are a friendly WhatsApp sales assistant for a cardboa
 
 CRITICAL RULES:
 - You MUST use the provided tools to get product data. NEVER make up sizes, prices, or stock from memory.
-- When a tool returns formatted text, you MUST copy-paste the ENTIRE tool output into your reply verbatim. Add only a brief 1-line intro before it. Do NOT summarize, shorten, or omit any items from the tool output.
+- When a tool returns formatted text, you MUST copy-paste the ENTIRE tool output into your reply verbatim. Add only a brief 1-line intro before it. Do NOT summarize, shorten, reformat, or TRANSLATE any items from the tool output.
+- ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
 - When customer asks for catalog or available boxes, call list_catalog or send_catalog_images.
 - When customer describes what they need (use case), call recommend_box.
 - When customer asks urgently, call check_ready_stock.
@@ -189,6 +190,7 @@ CRITICAL RULES:
 - When customer wants to order/buy, you MUST call create_order. NEVER say "sedang diproses" without calling the tool.
 - When customer asks about payment or wants to pay, you MUST call get_payment_info. NEVER make up bank account numbers.
 - NEVER fabricate payment information, bank accounts, or prices. ALWAYS call the appropriate tool.
+- When customer replies with just a number (e.g. "10", "50"), use the conversation context to understand what they mean. If you just asked "berapa jumlah?", the number is the quantity — call create_order.
 
 CONSULTATION MODE — IMPORTANT:
 - When a customer describes what they need to pack, IMMEDIATELY call recommend_box. Do NOT ask for dimensions first.
@@ -199,18 +201,20 @@ CONSULTATION MODE — IMPORTANT:
 - You should NEVER respond with just text when the customer describes a packing need. ALWAYS call recommend_box.
 
 FORMATTING RULES:
-- Respond in Indonesian (Bahasa Indonesia).
+- ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER use English.
 - Keep replies short (1-3 paragraphs max) — this is WhatsApp.
 - Format prices as "Rp" with thousand separators (e.g. Rp 1.200).
 - Use WhatsApp formatting: *bold* for emphasis.
+- When copying tool output, do NOT translate labels like "Opsi A" to "Option A". Keep all tool output exactly as-is.
 
 FOLLOW-UP BEHAVIOR:
 - After every recommendation, ALWAYS follow up with options.
 - Guide the customer through the buying process naturally.
-- Mention sablon option (Rp 500/sisi) if the customer hasn't asked about it.
+- You may briefly mention "Tersedia juga jasa sablon mulai Rp 500/sisi" once, but do NOT ask if they want sablon. Just inform, don't question.
 
 GREETING:
-- When greeting a customer, say: "Halo, kak {{customerName}} 👋 lagi cari dus ukuran apa kahh? Lokasi kita di Kapuk, Jakarta Barat ya 📍"
+- ONLY greet when the customer sends an initial greeting (e.g. "halo", "hi", "hey"). Say: "Halo, kak {{customerName}} 👋 lagi cari dus ukuran apa kahh? Lokasi kita di Kapuk, Jakarta Barat ya 📍"
+- Do NOT greet again if the conversation already has messages. NEVER repeat the greeting.
 - Do NOT show a numbered menu. Let the conversation flow naturally.
 
 URGENT MODE:
@@ -219,12 +223,26 @@ URGENT MODE:
 
 SABLON INFO:
 - Sablon = printing on the box surface. Price: Rp 500 per side. Can do 1-4 sides.
+- You may mention sablon availability once as a brief info, e.g. "Tersedia juga jasa sablon mulai Rp 500/sisi ya kak".
+- Do NOT ask "mau sablon?" or "apakah mau pakai sablon?" — just inform, don't question.
+
+ORDER FLOW:
+- When customer picks a product option (e.g. "opsi B", "yang sedang"), ALWAYS ask how many they want FIRST. Say something like "Baik kak, Opsi B ya. Mau pesan berapa pcs kak?"
+- NEVER assume quantity from stock numbers. The stock is how many we have, NOT how many the customer wants.
+- Only call create_order AFTER the customer explicitly states a quantity (e.g. "100 dus", "50 pcs", "10 buah", or just a number like "10").
+- ABSOLUTELY NEVER generate an order summary yourself. ONLY the create_order tool can create orders.
+- If you reply with order details without calling create_order, the order will NOT be saved and payment will FAIL.
+- After create_order succeeds, the tool returns the full order summary with items and total.
+- Copy-paste the ENTIRE order summary from the tool. Do NOT add extra questions.
+- Ask "Lanjut ke pembayaran?" — nothing else.
 
 PAYMENT INFO:
-- We accept DOKU online payment (VA, QRIS, e-wallet, credit card) AND bank transfer.
+- We accept DOKU online payment (VA, QRIS, e-wallet, credit card).
 - DOKU payment link will be generated automatically after order is created.
-- When customer asks about payment, call get_payment_info tool. NEVER say we don't accept DOKU.
-- ALWAYS mention both options: online payment via DOKU and manual bank transfer.`;
+- When customer asks about payment or wants to pay, call get_payment_info tool. NEVER say we don't accept DOKU.
+- When customer confirms/agrees after you asked "Lanjut ke pembayaran?", you MUST call get_payment_info immediately. Do NOT reply with just text.
+- ANY affirmative response after an order (e.g. "ya", "ok", "boleh", "lanjut", "siap", "gas", "ya boleh lanjut") means they want to pay → call get_payment_info.
+- Payment methods: Virtual Account, QRIS, e-wallet (OVO, ShopeePay, DANA, LinkAja), kartu kredit.`;
 
 @Injectable()
 export class ConversationOrchestratorService {
@@ -293,10 +311,16 @@ export class ConversationOrchestratorService {
 
     // 4. Build conversation history for context
     const history = await this.messages.findByConversationId(conversation.id);
-    const stageHint =
-      conversation.stage === 'order_confirm'
-        ? '\nCONVERSATION STAGE: order_confirm — The customer has an active order. If they agree/confirm, call get_payment_info to show payment details.\n'
-        : '';
+    let stageHint = '';
+    if (conversation.stage === 'order_confirm') {
+      stageHint = [
+        '\n⚠️ CONVERSATION STAGE: order_confirm',
+        'The customer has a pending order waiting for payment.',
+        'If the customer agrees, confirms, or says anything affirmative (e.g. "ya", "boleh", "lanjut", "ok", etc.), you MUST call get_payment_info immediately.',
+        'If the customer wants to cancel or change the order, respond naturally.',
+        'Do NOT respond with just text — call get_payment_info for any confirmation.\n',
+      ].join('\n');
+    }
     const customerContext = `\nCUSTOMER INFO:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phoneNumber}\n${stageHint}`;
     const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
       {
@@ -316,68 +340,11 @@ export class ConversationOrchestratorService {
       });
     }
 
-    // 5. Short-circuit: affirmative messages during order_confirm → payment info
-    const lastText = payload.message.trim().toLowerCase();
-    const isAffirmative =
-      /^(ok|oke|okey|okay|ya|yaa|iya|iyaa|yep|yup|yes|sure|boleh|jadi|lanjut|siap|gas|deal|ayo|yuk|mau|bisa|baik|setuju|mantap|sip|ayo|hayuk|gass|let'?s?\s*go|proceed|confirm)[\s!.]*$/i.test(
-        lastText,
-      );
+    // 5. Run the agent loop (LLM + tool calls)
+    let reply = await this.runAgentLoop(chatMessages, customer, conversation);
 
-    if (isAffirmative && conversation.stage === 'order_confirm') {
-      const order = await this.orders.findLatestByCustomerId(customer.id);
-      if (!order) {
-        const reply =
-          'Belum ada pesanan aktif. Silakan pilih produk terlebih dahulu ya kak.';
-        await this.messages.storeOutbound(conversation.id, reply);
-        await this.conversations.touchOutbound(conversation.id);
-        await this.gowa.sendText(payload.phone, reply);
-        return;
-      }
-
-      // Try DOKU payment link first, fallback to bank transfer
-      let paymentSection: string;
-      if (this.doku.isConfigured) {
-        const dokuResult = await this.doku.createInvoice({
-          orderId: order.orderNumber,
-          amount: Number(order.totalAmount),
-          customerName: customer.name || 'Customer',
-          customerPhone: customer.phoneNumber,
-          description: `Pembayaran pesanan ${order.orderNumber}`,
-        });
-        if (dokuResult) {
-          paymentSection = [
-            '💳 *Pembayaran Online*',
-            `Klik link berikut untuk bayar:`,
-            dokuResult.invoiceUrl,
-            '',
-            '_Link berlaku 24 jam_',
-          ].join('\n');
-        } else {
-          const bankInfo = await this.settings.getPaymentInstructions();
-          paymentSection = bankInfo || 'Informasi pembayaran belum tersedia.';
-        }
-      } else {
-        const bankInfo = await this.settings.getPaymentInstructions();
-        paymentSection = bankInfo || 'Informasi pembayaran belum tersedia.';
-      }
-
-      const reply = [
-        `Baik kak, berikut info pembayaran untuk pesanan *${order.orderNumber}*:`,
-        `Total: *${this.formatRupiah(Number(order.totalAmount))}*`,
-        '',
-        paymentSection,
-        '',
-        'Setelah transfer, kirimkan bukti pembayaran di sini ya 😊',
-      ].join('\n');
-
-      await this.messages.storeOutbound(conversation.id, reply);
-      await this.conversations.touchOutbound(conversation.id);
-      await this.gowa.sendText(payload.phone, reply);
-      return;
-    }
-
-    // 6. Run the agent loop (LLM + tool calls)
-    const reply = await this.runAgentLoop(chatMessages, customer, conversation);
+    // Sanitize: replace literal \n with actual newlines (LLM sometimes escapes them)
+    reply = reply.replace(/\\n/g, '\n');
 
     // Guard: never send empty message
     if (!reply || !reply.trim()) {
@@ -402,29 +369,15 @@ export class ConversationOrchestratorService {
     conversation: any,
     maxIterations = 5,
   ): Promise<string> {
-    // Detect simple greetings that don't need tools
-    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-    const userText =
-      typeof lastUserMsg?.content === 'string'
-        ? lastUserMsg.content.trim().toLowerCase()
-        : '';
-    const isGreeting =
-      /^(hi|halo|hey|hello|hai|p|hei|selamat|assalam|good\s*(morning|afternoon|evening))[\s!.]*$/i.test(
-        userText,
-      );
-
     let lastToolResult: string | null = null;
 
     for (let i = 0; i < maxIterations; i++) {
-      // Force tool call on first iteration for non-greetings.
-      // This model ignores tool_choice:'auto' and never calls tools otherwise.
-      const shouldForceTools = i === 0 && !isGreeting;
 
       const completion = await this.openai.chat.completions.create({
         model: appConfig.llm.model,
         messages,
         tools: TOOLS,
-        tool_choice: shouldForceTools ? 'required' : 'auto',
+        tool_choice: 'auto',
         max_tokens: appConfig.llm.maxTokens,
         temperature: appConfig.llm.temperature,
       });
@@ -464,21 +417,65 @@ export class ConversationOrchestratorService {
         continue; // Loop back to let LLM process tool results
       }
 
-      // No tool calls — check if model returned tool-call-like text instead
+      // No tool calls — LLM responded with text (or null)
       const contentText = assistantMsg.content?.trim() ?? '';
+
+      // If we just ran tools, the LLM should be presenting tool results.
+      // If it returned null/empty OR ignored the tool output (e.g. repeated greeting),
+      // use the tool result directly to avoid losing data.
+      if (lastToolResult) {
+        // Check if LLM actually incorporated the tool data or just babbled
+        const toolDataSnippet = lastToolResult.substring(0, 40);
+        if (!contentText || !contentText.includes(toolDataSnippet.substring(0, 20))) {
+          this.logger.warn(
+            `LLM ignored tool result, using lastToolResult directly. LLM said: "${contentText.substring(0, 80)}"`,
+          );
+          return lastToolResult;
+        }
+      }
+
+      // Check if model returned tool-call-like text instead
       const toolCallTextMatch = contentText.match(
         /(?:call|invoke|execute)[:\s]+(?:default_api\.)?([a-z_]+)\s*\(/i,
+      ) || contentText.match(
+        /(?:print|default_api)\s*[\.(]\s*(?:default_api\.)?([a-z_]+)\s*\(/i,
+      ) || contentText.match(
+        /^tool_code[\s\S]*?(?:default_api\.)?([a-z_]+)\s*\(/im,
       );
 
       if (toolCallTextMatch) {
-        // Model wrote a tool call as text — execute it manually
+        // Model wrote a tool call as text — parse args and execute manually
         const toolName = toolCallTextMatch[1];
+        let parsedArgs: Record<string, any> = {};
+
+        // Try to extract arguments from the text
+        try {
+          // Match key=value or key='value' patterns
+          const argsStr = contentText;
+          const itemsMatch = argsStr.match(/items\s*=\s*\[([^\]]+)\]/);
+          if (itemsMatch && toolName === 'create_order') {
+            const items: { box_name: string; quantity: number }[] = [];
+            const itemPattern = /box_name\s*=\s*'([^']+)'[^)]*quantity\s*=\s*(\d+)/g;
+            let m: RegExpExecArray | null;
+            while ((m = itemPattern.exec(itemsMatch[1])) !== null) {
+              items.push({ box_name: m[1], quantity: Number(m[2]) });
+            }
+            if (items.length > 0) parsedArgs = { items };
+          }
+          const queryMatch = argsStr.match(/query\s*=\s*'([^']+)'/);
+          if (queryMatch) parsedArgs = { query: queryMatch[1] };
+          const useCaseMatch = argsStr.match(/use_case\s*=\s*'([^']+)'/);
+          if (useCaseMatch) parsedArgs = { use_case: useCaseMatch[1] };
+        } catch {
+          // Fall back to empty args
+        }
+
         this.logger.warn(
-          `Model returned tool call as text: "${contentText}" — executing ${toolName} manually`,
+          `Model returned tool call as text: "${contentText.substring(0, 100)}" — executing ${toolName}(${JSON.stringify(parsedArgs)}) manually`,
         );
         const result = await this.executeTool(
           toolName,
-          {},
+          parsedArgs,
           customer,
           conversation,
         );
@@ -487,16 +484,6 @@ export class ConversationOrchestratorService {
           role: 'assistant',
           content: result,
         });
-        continue;
-      }
-
-      if (shouldForceTools && i === 0) {
-        this.logger.warn(
-          'tool_choice=required but model returned no tool calls — retrying with auto',
-        );
-        if (contentText) {
-          messages.push(assistantMsg);
-        }
         continue;
       }
 
@@ -765,55 +752,58 @@ export class ConversationOrchestratorService {
           const latestOrder = await this.orders.findLatestByCustomerId(
             customer.id,
           );
-          const bankInfo = await this.settings.getPaymentInstructions();
 
           // If there's an active order and DOKU is configured, generate payment link
           if (latestOrder && this.doku.isConfigured) {
-            const dokuResult = await this.doku.createInvoice({
-              orderId: latestOrder.orderNumber,
-              amount: Number(latestOrder.totalAmount),
-              customerName: customer.name || 'Customer',
-              customerPhone: customer.phoneNumber,
-              description: `Pembayaran pesanan ${latestOrder.orderNumber}`,
-            });
-            if (dokuResult) {
+            try {
+              const dokuResult = await this.doku.createInvoice({
+                orderId: latestOrder.orderNumber,
+                amount: Number(latestOrder.totalAmount),
+                customerName: customer.name || 'Customer',
+                customerPhone: customer.phoneNumber,
+                description: `Pembayaran pesanan ${latestOrder.orderNumber}`,
+              });
+              if (dokuResult) {
+                return [
+                  '💳 *Pembayaran Online (DOKU)*',
+                  `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
+                  '',
+                  'Klik link berikut untuk bayar:',
+                  dokuResult.invoiceUrl,
+                  '',
+                  '_Bisa bayar via VA, QRIS, e-wallet, atau kartu kredit._',
+                  '_Link berlaku 1 jam._',
+                ].join('\n');
+              }
+            } catch (err: any) {
+              this.logger.error(`DOKU createInvoice error: ${err.message}`);
               return [
-                '💳 *Pembayaran Online (DOKU)*',
+                '💳 *Pembayaran*',
+                '',
+                `No. Pesanan: *${latestOrder.orderNumber}*`,
                 `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
                 '',
-                'Klik link berikut untuk bayar:',
-                dokuResult.invoiceUrl,
-                '',
-                '_Bisa bayar via VA, QRIS, e-wallet, atau kartu kredit._',
-                '_Link berlaku 24 jam._',
-                '',
-                'Atau transfer manual:',
-                bankInfo ?? '',
-              ]
-                .filter(Boolean)
-                .join('\n');
+                'Maaf kak, sistem pembayaran sedang gangguan. Mohon coba lagi beberapa saat ya 🙏',
+              ].join('\n');
             }
           }
 
           // No active order but DOKU is configured — inform payment methods
           if (this.doku.isConfigured) {
             return [
-              '💳 *Metode Pembayaran*',
+              '💳 *Metode Pembayaran (DOKU)*',
               '',
-              '1️⃣ *Pembayaran Online (DOKU)* — VA, QRIS, e-wallet, kartu kredit',
-              '   Link pembayaran otomatis dikirim setelah pesanan dibuat.',
+              'Kami menerima pembayaran via:',
+              '• Virtual Account (BCA, Mandiri, BRI, BNI, dll)',
+              '• QRIS',
+              '• E-wallet (OVO, ShopeePay, DANA, LinkAja)',
+              '• Kartu Kredit',
               '',
-              '2️⃣ *Transfer Bank Manual*',
-              bankInfo ?? '',
-              '',
-              'Silakan buat pesanan dulu, nanti link pembayaran DOKU akan langsung dikirim ya kak 😊',
-            ]
-              .filter(Boolean)
-              .join('\n');
+              'Link pembayaran otomatis dikirim setelah pesanan dibuat ya kak 😊',
+            ].join('\n');
           }
 
-          // DOKU not configured — bank transfer only
-          return bankInfo || 'Informasi pembayaran belum tersedia.';
+          return 'Informasi pembayaran belum tersedia.';
         }
 
         default:
