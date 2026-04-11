@@ -35,14 +35,14 @@ export class DokuService {
     const requestId = randomUUID();
     const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
-    const body = {
+    const body: Record<string, any> = {
       order: {
         amount: params.amount,
         invoice_number: params.orderId,
         currency: 'IDR',
       },
       payment: {
-        payment_due_date: params.expiryMinutes ?? 1440,
+        payment_due_date: params.expiryMinutes ?? 60,
       },
       customer: {
         name: params.customerName,
@@ -50,6 +50,13 @@ export class DokuService {
         phone: params.customerPhone,
       },
     };
+
+    // Add notification URL so DOKU sends payment callbacks
+    if (appConfig.doku.notificationUrl) {
+      body.additional_info = {
+        override_notification_url: appConfig.doku.notificationUrl,
+      };
+    }
 
     const bodyStr = JSON.stringify(body);
     const signature = this.generateSignature(
@@ -101,15 +108,17 @@ export class DokuService {
     body: string,
     requestId: string,
     timestamp: string,
+    requestTarget: string,
   ): boolean {
     if (!this.isConfigured) return false;
 
-    // DOKU notification signature uses the same pattern
+    // DOKU notification signature requires Request-Target (the path of the notification URL)
     const digest = this.sha256Base64(body);
     const component = [
       `Client-Id:${this.clientId}`,
       `Request-Id:${requestId}`,
       `Request-Timestamp:${timestamp}`,
+      `Request-Target:${requestTarget}`,
       `Digest:${digest}`,
     ].join('\n');
 

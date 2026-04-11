@@ -38,5 +38,6 @@ export const appConfig = {
     clientId: process.env.DOKU_CLIENT_ID ?? '',
     secretKey: process.env.DOKU_SECRET_KEY ?? '',
     baseUrl: process.env.DOKU_BASE_URL ?? 'https://api-sandbox.doku.com',
+    notificationUrl: process.env.DOKU_NOTIFICATION_URL ?? '',
   },
 };
