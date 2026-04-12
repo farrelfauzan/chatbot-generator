@@ -130,7 +130,7 @@ export class DokuWebhookController {
         `Total: *${formattedAmount}*`,
         `Metode: ${this.formatChannelName(channelId)}`,
         '',
-        'Pesanan kak sedang kami proses dan akan segera dikirim ya 📦',
+        'Pesanan kaka sedang kami proses dan akan segera dikirim ya 📦',
         '',
         'Terima kasih sudah berbelanja! 🙏',
       ].join('\n');
