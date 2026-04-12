@@ -27,11 +27,7 @@ const SABLON_PER_SIDE = 500; // Rp per side
 export type BoxType = 'dus_baru' | 'dus_pizza';
 export type Material = 'singlewall' | 'cflute' | 'doublewall';
 
-export function calculateSurfaceArea(
-  p: number,
-  l: number,
-  t: number,
-): number {
+export function calculateSurfaceArea(p: number, l: number, t: number): number {
   return 2 * (p * l + p * t + l * t);
 }
 
