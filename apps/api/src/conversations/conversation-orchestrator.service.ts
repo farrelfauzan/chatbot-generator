@@ -90,7 +90,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'send_catalog_images',
       description:
-        'Send catalog images (photos of available cardboard boxes) to the customer via WhatsApp. Use when customer asks to see the catalog visually or says "lihat katalog", "foto", "gambar".',
+        'Send catalog images (photos of available cardboard boxes) to the customer via WhatsApp. Use when: (1) customer first asks about cardboard/dus/kardus without specifying a size or use case, (2) customer asks to see the catalog visually, or (3) customer says "lihat katalog", "foto", "gambar".',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -184,6 +184,7 @@ CRITICAL RULES:
 - When a tool returns formatted text, you MUST copy-paste the ENTIRE tool output into your reply verbatim. Add only a brief 1-line intro before it. Do NOT summarize, shorten, reformat, or TRANSLATE any items from the tool output.
 - ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
 - When customer asks for catalog or available boxes, call list_catalog or send_catalog_images.
+- When customer FIRST asks about cardboard/dus/kardus (e.g. "ada dus?", "jual kardus?", "mau beli dus", "cari dus") and has NOT described a specific use case or size, ALWAYS call send_catalog_images FIRST so they can see what we offer. Then follow up with text.
 - When customer describes what they need (use case), call recommend_box.
 - When customer asks urgently, call check_ready_stock.
 - NEVER list products without calling a tool first.
@@ -213,7 +214,7 @@ FOLLOW-UP BEHAVIOR:
 - You may briefly mention "Tersedia juga jasa sablon mulai Rp 500/sisi" once, but do NOT ask if they want sablon. Just inform, don't question.
 
 GREETING:
-- ONLY greet when the customer sends an initial greeting (e.g. "halo", "hi", "hey"). Say: "Halo, kak {{customerName}} 👋 lagi cari dus ukuran apa kahh? Lokasi kita di Kapuk, Jakarta Barat ya 📍"
+- ONLY greet when the customer sends an initial greeting (e.g. "halo", "hi", "hey"). Say: "Halo, kak {{customerName}} 👋 lagi cari dus ukuran apa kahh? Lokasi kita di Kapuk, Jakarta Barat ya 📍" — then ALSO call send_catalog_images so the customer can see our products right away.
 - Do NOT greet again if the conversation already has messages. NEVER repeat the greeting.
 - Do NOT show a numbered menu. Let the conversation flow naturally.
 
@@ -269,6 +270,17 @@ export class ConversationOrchestratorService {
     private readonly doku: DokuService,
   ) {}
 
+  /**
+   * This is the main entry point for handling an inbound WhatsApp message from Gowa. It will:
+   * 1. Upsert the customer based on phone number
+   * 2. Resolve the conversation via chat session (create new if no active session)
+   * 3. Store the inbound message
+   * 4. Build the conversation history and system prompt for LLM context
+   * 5. Run the agent loop (LLM + tool calls) to get a reply
+   * @param payload
+   * @returns
+   *
+   */
   async handleInboundMessage(payload: GowaInboundMessage): Promise<void> {
     // 1. Upsert customer
     const customer = await this.customers.upsertByPhone(payload.phone, {
@@ -372,7 +384,6 @@ export class ConversationOrchestratorService {
     let lastToolResult: string | null = null;
 
     for (let i = 0; i < maxIterations; i++) {
-
       const completion = await this.openai.chat.completions.create({
         model: appConfig.llm.model,
         messages,
@@ -426,7 +437,10 @@ export class ConversationOrchestratorService {
       if (lastToolResult) {
         // Check if LLM actually incorporated the tool data or just babbled
         const toolDataSnippet = lastToolResult.substring(0, 40);
-        if (!contentText || !contentText.includes(toolDataSnippet.substring(0, 20))) {
+        if (
+          !contentText ||
+          !contentText.includes(toolDataSnippet.substring(0, 20))
+        ) {
           this.logger.warn(
             `LLM ignored tool result, using lastToolResult directly. LLM said: "${contentText.substring(0, 80)}"`,
           );
@@ -435,13 +449,16 @@ export class ConversationOrchestratorService {
       }
 
       // Check if model returned tool-call-like text instead
-      const toolCallTextMatch = contentText.match(
-        /(?:call|invoke|execute)[:\s]+(?:default_api\.)?([a-z_]+)\s*\(/i,
-      ) || contentText.match(
-        /(?:print|default_api)\s*[\.(]\s*(?:default_api\.)?([a-z_]+)\s*\(/i,
-      ) || contentText.match(
-        /^tool_code[\s\S]*?(?:default_api\.)?([a-z_]+)\s*\(/im,
-      );
+      const toolCallTextMatch =
+        contentText.match(
+          /(?:call|invoke|execute)[:\s]+(?:default_api\.)?([a-z_]+)\s*\(/i,
+        ) ||
+        contentText.match(
+          /(?:print|default_api)\s*[\.(]\s*(?:default_api\.)?([a-z_]+)\s*\(/i,
+        ) ||
+        contentText.match(
+          /^tool_code[\s\S]*?(?:default_api\.)?([a-z_]+)\s*\(/im,
+        );
 
       if (toolCallTextMatch) {
         // Model wrote a tool call as text — parse args and execute manually
@@ -455,7 +472,8 @@ export class ConversationOrchestratorService {
           const itemsMatch = argsStr.match(/items\s*=\s*\[([^\]]+)\]/);
           if (itemsMatch && toolName === 'create_order') {
             const items: { box_name: string; quantity: number }[] = [];
-            const itemPattern = /box_name\s*=\s*'([^']+)'[^)]*quantity\s*=\s*(\d+)/g;
+            const itemPattern =
+              /box_name\s*=\s*'([^']+)'[^)]*quantity\s*=\s*(\d+)/g;
             let m: RegExpExecArray | null;
             while ((m = itemPattern.exec(itemsMatch[1])) !== null) {
               items.push({ box_name: m[1], quantity: Number(m[2]) });
