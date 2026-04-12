@@ -354,7 +354,13 @@ export class ConversationOrchestratorService {
 
     // 5. Run the agent loop (LLM + tool calls)
     const pendingImages: { phone: string; url: string; caption: string }[] = [];
-    let reply = await this.runAgentLoop(chatMessages, customer, conversation, 5, pendingImages);
+    let reply = await this.runAgentLoop(
+      chatMessages,
+      customer,
+      conversation,
+      5,
+      pendingImages,
+    );
 
     // Sanitize: replace literal \n with actual newlines (LLM sometimes escapes them)
     reply = reply.replace(/\\n/g, '\n');
@@ -385,7 +391,7 @@ export class ConversationOrchestratorService {
     messages: OpenAI.ChatCompletionMessageParam[],
     customer: any,
     conversation: any,
-    maxIterations = 5,
+    maxIterations = 8,
     pendingImages: { phone: string; url: string; caption: string }[] = [],
   ): Promise<string> {
     let lastToolResult: string | null = null;
@@ -434,6 +440,10 @@ export class ConversationOrchestratorService {
             content: result,
           });
         }
+
+        // Reset nullCount after successful tool execution so LLM can
+        // return text on the next iteration (tool_choice goes back to 'auto')
+        nullCount = 0;
 
         continue; // Loop back to let LLM process tool results
       }
