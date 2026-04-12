@@ -33,7 +33,7 @@ export class CardboardService {
   }
 
   async search(term: string) {
-    // Try exact dimension match first (e.g. "15x5x6")
+    // Try exact dimension match first (e.g. "5x5x5")
     const dimMatch = term.match(
       /([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)/i,
     );
@@ -41,11 +41,17 @@ export class CardboardService {
       const p = parseFloat(dimMatch[1].replace(',', '.'));
       const l = parseFloat(dimMatch[2].replace(',', '.'));
       const t = parseFloat(dimMatch[3].replace(',', '.'));
+
+      // Exact match
       const byDim = await this.prisma.client.cardboardProduct.findMany({
         where: { panjang: p, lebar: l, tinggi: t, isActive: true },
         orderBy: { pricePerPcs: 'asc' },
       });
       if (byDim.length > 0) return byDim;
+
+      // No exact match — find closest sizes instead of falling through to keyword search
+      const closest = await this.findClosestMatch(p, l, t);
+      return closest;
     }
 
     // Split into keywords and match any word

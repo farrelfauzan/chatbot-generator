@@ -543,17 +543,38 @@ export class ConversationOrchestratorService {
     try {
       switch (toolName) {
         case 'search_boxes': {
-          const results = await this.cardboard.search(args.query);
+          const query = args.query;
+          const results = await this.cardboard.search(query);
           if (results.length === 0) {
-            return 'Tidak ditemukan dus yang cocok dengan pencarian.';
+            return `Maaf kak, ukuran ${query} tidak tersedia. Boleh coba ukuran lain atau ceritakan kebutuhannya, nanti kami bantu carikan yang paling cocok 😊`;
           }
+
+          // Check if exact dimension match or closest alternatives
+          const dimMatch = query.match(
+            /([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)/i,
+          );
+          let isExact = false;
+          if (dimMatch) {
+            const p = parseFloat(dimMatch[1].replace(',', '.'));
+            const l = parseFloat(dimMatch[2].replace(',', '.'));
+            const t = parseFloat(dimMatch[3].replace(',', '.'));
+            isExact = results.some(
+              (r) => r.panjang === p && r.lebar === l && r.tinggi === t,
+            );
+          }
+
           const lines = results
             .slice(0, 10)
             .map(
               (p, i) =>
-                `${i + 1}. *${p.name}*\n   ${this.formatRupiah(Number(p.pricePerPcs))}/pcs — Stok: ${p.stockQty > 0 ? p.stockQty : 'Habis'}${p.isReadyStock ? ' ✅ Ready' : ''}`,
+                `${i + 1}. *${p.name}*\n   Ukuran: ${p.panjang}x${p.lebar}x${p.tinggi} cm\n   Harga: ${this.formatRupiah(Number(p.pricePerPcs))}/pcs\n   Stok: ${p.stockQty > 0 ? `${p.stockQty} pcs` : 'Habis'}${p.isReadyStock ? ' ✅ Ready Stock' : ''}`,
             );
-          return `Hasil pencarian "${args.query}":\n\n${lines.join('\n\n')}`;
+
+          if (isExact) {
+            return `✅ Ukuran *${query}* tersedia kak!\n\n${lines.join('\n\n')}\n\nMau pesan berapa pcs kak? 😊`;
+          } else {
+            return `Maaf kak, ukuran *${query}* tidak tersedia. Tapi ada ukuran terdekat:\n\n${lines.join('\n\n')}\n\nAda yang cocok, atau mau coba ukuran lain? 😊`;
+          }
         }
 
         case 'list_catalog': {
