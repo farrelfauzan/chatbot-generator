@@ -721,10 +721,12 @@ export class ConversationOrchestratorService {
             phone: customer.phoneNumber,
             url: firstImage.imageUrl,
             caption:
-              firstImage.title + (firstImage.description ? `\n${firstImage.description}` : ''),
+              firstImage.title +
+              (firstImage.description ? `\n${firstImage.description}` : ''),
           });
 
-          return `Kami kirimkan foto katalog kami ya kak 📸\n\nKami bisa bikin dus *custom ukuran apa aja*! Tinggal sebutkan ukuran (PxLxT) dan jenis dusnya (Dus Baru / Dus Pizza), nanti kami hitungkan harganya 😊`;
+          const customerName = customer.name || 'kakak';
+          return `Halo, kak ${customerName} 👋 kami supplier dus/kardus custom di Kapuk, Jakarta Barat 📍\n\nKami bisa bikin dus *custom ukuran apa aja*! Tinggal sebutkan ukuran (PxLxT) dan jenis dusnya (Dus Baru / Dus Pizza), nanti kami hitungkan harganya 😊\n\n🚚 Gratis ongkir!`;
         }
 
         case 'send_sablon_samples': {
