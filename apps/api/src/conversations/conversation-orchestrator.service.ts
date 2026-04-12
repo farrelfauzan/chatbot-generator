@@ -80,7 +80,16 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'send_catalog_images',
       description:
-        'Send catalog images (photos of available cardboard boxes) to the customer via WhatsApp. Use when: (1) customer first asks about cardboard/dus/kardus, (2) customer asks to see catalog visually, or (3) customer says "lihat katalog", "foto", "gambar".',
+        'Send the catalog opening photo to the customer via WhatsApp. Use on first greeting or when customer asks to see catalog. Only sends 1 image.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'send_sablon_samples',
+      description:
+        'Send sablon (printing) sample photos to the customer. ONLY use when customer specifically asks about sablon, printing, cetak logo, or wants to see sablon examples.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -244,7 +253,9 @@ PAYMENT — ABSOLUTE RULES:
 
 SABLON INFO:
 - Mention once: "Tersedia juga jasa sablon mulai Rp 500/sisi ya kak 😊"
-- Do NOT repeatedly ask about sablon.`;
+- Do NOT repeatedly ask about sablon.
+- Only call send_sablon_samples when customer ASKS about sablon/printing/cetak.
+- On greeting, only send catalog opening image (send_catalog_images). Do NOT send sablon samples on greeting.`;
 
 @Injectable()
 export class ConversationOrchestratorService {
@@ -704,8 +715,27 @@ export class ConversationOrchestratorService {
             return 'Foto katalog belum tersedia. Silakan sebutkan ukuran yang dibutuhkan, kami bisa buatkan custom sesuai kebutuhan!';
           }
 
-          const maxImages = images.slice(0, 3);
-          for (const img of maxImages) {
+          // Only send the first image (opening/catalog pic)
+          const firstImage = images[0];
+          pendingImages.push({
+            phone: customer.phoneNumber,
+            url: firstImage.imageUrl,
+            caption:
+              firstImage.title + (firstImage.description ? `\n${firstImage.description}` : ''),
+          });
+
+          return `Kami kirimkan foto katalog kami ya kak 📸\n\nKami bisa bikin dus *custom ukuran apa aja*! Tinggal sebutkan ukuran (PxLxT) dan jenis dusnya (Dus Baru / Dus Pizza), nanti kami hitungkan harganya 😊`;
+        }
+
+        case 'send_sablon_samples': {
+          const images = await this.catalogImages.findAll();
+          // Sablon samples are images after the first one (index 1+)
+          const sablonImages = images.slice(1);
+          if (sablonImages.length === 0) {
+            return 'Foto contoh sablon belum tersedia. Sablon = cetak logo/tulisan di permukaan dus. Biaya Rp 500 per sisi (1-4 sisi).';
+          }
+
+          for (const img of sablonImages.slice(0, 3)) {
             pendingImages.push({
               phone: customer.phoneNumber,
               url: img.imageUrl,
@@ -714,7 +744,7 @@ export class ConversationOrchestratorService {
             });
           }
 
-          return `Kami kirimkan foto contoh produk kami ya kak 📸\n\nKami bisa bikin dus *custom ukuran apa aja*! Tinggal sebutkan ukuran (PxLxT) dan jenis dusnya (Dus Baru / Dus Pizza), nanti kami hitungkan harganya 😊`;
+          return `Ini contoh hasil sablon kami ya kak 📸\n\nSablon bisa di 1-4 sisi dus, biaya Rp 500/sisi. Kalau mau sablon, tinggal share desainnya ya kak 😊`;
         }
 
         case 'create_order': {
