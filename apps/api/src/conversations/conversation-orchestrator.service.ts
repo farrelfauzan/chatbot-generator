@@ -353,7 +353,8 @@ export class ConversationOrchestratorService {
     }
 
     // 5. Run the agent loop (LLM + tool calls)
-    let reply = await this.runAgentLoop(chatMessages, customer, conversation);
+    const pendingImages: { phone: string; url: string; caption: string }[] = [];
+    let reply = await this.runAgentLoop(chatMessages, customer, conversation, 5, pendingImages);
 
     // Sanitize: replace literal \n with actual newlines (LLM sometimes escapes them)
     reply = reply.replace(/\\n/g, '\n');
@@ -369,10 +370,15 @@ export class ConversationOrchestratorService {
       return;
     }
 
-    // 7. Store outbound & send
+    // 7. Store outbound & send text reply first
     await this.messages.storeOutbound(conversation.id, reply);
     await this.conversations.touchOutbound(conversation.id);
     await this.gowa.sendText(payload.phone, reply);
+
+    // 8. Send any pending images AFTER the text reply
+    for (const img of pendingImages) {
+      await this.gowa.sendImage(img.phone, img.url, img.caption);
+    }
   }
 
   private async runAgentLoop(
@@ -380,6 +386,7 @@ export class ConversationOrchestratorService {
     customer: any,
     conversation: any,
     maxIterations = 5,
+    pendingImages: { phone: string; url: string; caption: string }[] = [],
   ): Promise<string> {
     let lastToolResult: string | null = null;
 
@@ -412,6 +419,7 @@ export class ConversationOrchestratorService {
             JSON.parse(toolCall.function.arguments),
             customer,
             conversation,
+            pendingImages,
           );
 
           this.logger.debug(
@@ -498,6 +506,7 @@ export class ConversationOrchestratorService {
           parsedArgs,
           customer,
           conversation,
+          pendingImages,
         );
         lastToolResult = result;
         messages.push({
@@ -537,6 +546,7 @@ export class ConversationOrchestratorService {
     args: Record<string, any>,
     customer: any,
     conversation: any,
+    pendingImages: { phone: string; url: string; caption: string }[] = [],
   ): Promise<string> {
     // Strip "default_api." prefix that some LLMs add
     const toolName = name.replace(/^default_api\./, '');
@@ -676,12 +686,14 @@ export class ConversationOrchestratorService {
           }
 
           const maxImages = images.slice(0, 3);
+          // Queue images to be sent AFTER the text reply
           for (const img of maxImages) {
-            await this.gowa.sendImage(
-              customer.phoneNumber,
-              img.imageUrl,
-              img.title + (img.description ? `\n${img.description}` : ''),
-            );
+            pendingImages.push({
+              phone: customer.phoneNumber,
+              url: img.imageUrl,
+              caption:
+                img.title + (img.description ? `\n${img.description}` : ''),
+            });
           }
 
           const extra =
