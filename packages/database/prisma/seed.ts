@@ -48,35 +48,8 @@ async function main() {
 
   console.log(`  ✅ ${companyInfoData.length} company info entries seeded`);
 
-  // ─── Bank Accounts ─────────────────────────────────
-
-  const bankAccountsData = [
-    {
-      bankName: "BCA",
-      accountNumber: "1234567890",
-      accountHolder: "Dus Kapuk Jaya",
-      isActive: true,
-      isDefault: true,
-    },
-    {
-      bankName: "Mandiri",
-      accountNumber: "0987654321",
-      accountHolder: "Dus Kapuk Jaya",
-      isActive: true,
-      isDefault: false,
-    },
-  ];
-
-  for (const bank of bankAccountsData) {
-    const existing = await prisma.bankAccount.findFirst({
-      where: { bankName: bank.bankName, accountNumber: bank.accountNumber },
-    });
-    if (!existing) {
-      await prisma.bankAccount.create({ data: bank });
-    }
-  }
-
-  console.log(`  ✅ ${bankAccountsData.length} bank accounts seeded`);
+  // ─── Bank Accounts (legacy — DOKU only now) ────────
+  // No bank accounts seeded. Payment is via DOKU payment link only.
 
   // ─── Sablon Options ────────────────────────────────
 
@@ -122,7 +95,7 @@ async function main() {
     {
       question: "Metode pembayaran apa saja?",
       answer:
-        "Kami menerima pembayaran via DOKU: Virtual Account (BCA, Mandiri, BRI, BNI), QRIS, e-wallet (OVO, ShopeePay, DANA, LinkAja), dan kartu kredit.",
+        "Pembayaran melalui link DOKU yang dikirim otomatis setelah pesanan dibuat. Bisa bayar via QRIS, e-wallet, atau kartu kredit.",
       category: "payment",
     },
     {
