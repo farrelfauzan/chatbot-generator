@@ -383,14 +383,16 @@ export class ConversationOrchestratorService {
   ): Promise<string> {
     let lastToolResult: string | null = null;
 
+    let nullCount = 0;
+
     for (let i = 0; i < maxIterations; i++) {
       const completion = await this.openai.chat.completions.create({
         model: appConfig.llm.model,
         messages,
         tools: TOOLS,
-        tool_choice: 'auto',
+        tool_choice: nullCount >= 2 ? 'required' : 'auto',
         max_tokens: appConfig.llm.maxTokens,
-        temperature: appConfig.llm.temperature,
+        temperature: Math.min(appConfig.llm.temperature + nullCount * 0.2, 1.5),
       });
 
       const choice = completion.choices[0];
@@ -505,28 +507,22 @@ export class ConversationOrchestratorService {
         continue;
       }
 
-      const finalReply =
-        contentText ||
-        lastToolResult ||
-        '';
+      const finalReply = contentText || lastToolResult || '';
 
-      // If LLM returned nothing (null content, no tool calls) on early iterations, retry with a nudge
+      // If LLM returned nothing (null content, no tool calls), retry the same call
+      // with higher temperature instead of polluting context with nudge messages
       if (!finalReply && i < maxIterations - 1) {
+        nullCount++;
         this.logger.warn(
-          `LLM returned empty on iteration ${i}, nudging to retry`,
+          `LLM returned empty on iteration ${i}, retrying with higher temperature (${Math.min(appConfig.llm.temperature + nullCount * 0.2, 1.5)})`,
         );
-        messages.push({
-          role: 'assistant',
-          content: '',
-        });
-        messages.push({
-          role: 'user',
-          content: '(system: your previous response was empty, please respond to the customer message above using your tools or text)',
-        });
         continue;
       }
 
-      return finalReply || 'Maaf, saya tidak bisa memproses pesan Anda saat ini. Bisa coba ulangi? 🙏';
+      return (
+        finalReply ||
+        'Maaf, saya tidak bisa memproses pesan Anda saat ini. Bisa coba ulangi? 🙏'
+      );
     }
 
     return 'Maaf kak, saya mengalami kesulitan memproses permintaan. Bisa coba ulangi? 🙏';
@@ -581,7 +577,8 @@ export class ConversationOrchestratorService {
           let idx = 0;
           const refParts: string[] = [];
           for (const [type, items] of grouped) {
-            const label = type === 'die_cut' ? '✂️ Dus Die Cut' : '📦 Dus Indomi';
+            const label =
+              type === 'die_cut' ? '✂️ Dus Die Cut' : '📦 Dus Indomi';
             const limited = items.slice(0, 15);
             const lines = limited.map((p) => {
               idx++;

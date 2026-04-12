@@ -62,9 +62,9 @@ export class CardboardService {
     ]);
 
     if (orConditions.length === 0) {
-      orConditions.push(
-        { name: { contains: term, mode: 'insensitive' as any } },
-      );
+      orConditions.push({
+        name: { contains: term, mode: 'insensitive' as any },
+      });
     }
 
     return this.prisma.client.cardboardProduct.findMany({
