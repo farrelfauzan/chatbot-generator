@@ -508,8 +508,25 @@ export class ConversationOrchestratorService {
       const finalReply =
         contentText ||
         lastToolResult ||
-        'Maaf, saya tidak bisa memproses pesan Anda saat ini.';
-      return finalReply;
+        '';
+
+      // If LLM returned nothing (null content, no tool calls) on early iterations, retry with a nudge
+      if (!finalReply && i < maxIterations - 1) {
+        this.logger.warn(
+          `LLM returned empty on iteration ${i}, nudging to retry`,
+        );
+        messages.push({
+          role: 'assistant',
+          content: '',
+        });
+        messages.push({
+          role: 'user',
+          content: '(system: your previous response was empty, please respond to the customer message above using your tools or text)',
+        });
+        continue;
+      }
+
+      return finalReply || 'Maaf, saya tidak bisa memproses pesan Anda saat ini. Bisa coba ulangi? 🙏';
     }
 
     return 'Maaf kak, saya mengalami kesulitan memproses permintaan. Bisa coba ulangi? 🙏';
