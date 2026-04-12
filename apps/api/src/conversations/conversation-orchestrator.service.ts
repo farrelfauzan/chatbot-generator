@@ -187,10 +187,10 @@ BOX TYPES:
 2. *Dus Pizza* — Die-cut pizza box. Satu material saja. Cocok untuk pizza, makanan flat, dll.
 
 PRICING:
-- Harga dihitung otomatis berdasarkan ukuran (panjang × lebar × tinggi) dan material.
-- Selalu gunakan tool calculate_price untuk mendapatkan harga. JANGAN pernah mengarang harga.
-- Sablon (cetak logo/tulisan): +Rp 500 per sisi (bisa 1-4 sisi).
-- Ongkir GRATIS (gratis ongkir).
+- Price is calculated automatically based on dimensions (panjang × lebar × tinggi) and material.
+- Always use the calculate_price tool to get prices. NEVER make up or estimate prices.
+- Sablon (printing logo/text on box): +Rp 500 per side (1-4 sides).
+- Delivery is FREE (gratis ongkir).
 
 CRITICAL RULES:
 - ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
@@ -560,9 +560,7 @@ export class ConversationOrchestratorService {
           const t = Number(args.tinggi);
           const material = (args.material ?? 'singlewall') as Material;
           const quantity = args.quantity ? Number(args.quantity) : undefined;
-          const sablonSides = args.sablon_sides
-            ? Number(args.sablon_sides)
-            : 0;
+          const sablonSides = args.sablon_sides ? Number(args.sablon_sides) : 0;
 
           if (!p || !l || !t || p <= 0 || l <= 0 || t <= 0) {
             return 'Ukuran harus lebih dari 0. Mohon sebutkan panjang, lebar, dan tinggi dalam cm.';
