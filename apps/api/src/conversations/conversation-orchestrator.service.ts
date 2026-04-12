@@ -525,8 +525,10 @@ export class ConversationOrchestratorService {
     customer: any,
     conversation: any,
   ): Promise<string> {
+    // Strip "default_api." prefix that some LLMs add
+    const toolName = name.replace(/^default_api\./, '');
     try {
-      switch (name) {
+      switch (toolName) {
         case 'search_boxes': {
           const results = await this.cardboard.search(args.query);
           if (results.length === 0) {
@@ -825,10 +827,10 @@ export class ConversationOrchestratorService {
         }
 
         default:
-          return `Tool "${name}" tidak dikenali.`;
+          return `Tool "${toolName}" tidak dikenali.`;
       }
     } catch (err: any) {
-      this.logger.error(`Tool ${name} failed: ${err.message}`);
+      this.logger.error(`Tool ${toolName} failed: ${err.message}`);
       return 'Maaf, terjadi kesalahan saat memproses. Silakan coba lagi.';
     }
   }
