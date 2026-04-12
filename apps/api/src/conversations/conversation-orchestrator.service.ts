@@ -392,7 +392,7 @@ export class ConversationOrchestratorService {
         tools: TOOLS,
         tool_choice: nullCount >= 2 ? 'required' : 'auto',
         max_tokens: appConfig.llm.maxTokens,
-        temperature: Math.min(appConfig.llm.temperature + nullCount * 0.2, 1.5),
+        temperature: 1.0,
       });
 
       const choice = completion.choices[0];
@@ -514,7 +514,7 @@ export class ConversationOrchestratorService {
       if (!finalReply && i < maxIterations - 1) {
         nullCount++;
         this.logger.warn(
-          `LLM returned empty on iteration ${i}, retrying with higher temperature (${Math.min(appConfig.llm.temperature + nullCount * 0.2, 1.5)})`,
+          `LLM returned empty on iteration ${i}, retrying (nullCount=${nullCount}, tool_choice=${nullCount >= 2 ? 'required' : 'auto'})`,
         );
         continue;
       }
