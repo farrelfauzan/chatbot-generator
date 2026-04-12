@@ -392,7 +392,7 @@ export class ConversationOrchestratorService {
         tools: TOOLS,
         tool_choice: nullCount >= 2 ? 'required' : 'auto',
         max_tokens: appConfig.llm.maxTokens,
-        temperature: 1.0,
+        temperature: appConfig.llm.temperature,
       });
 
       const choice = completion.choices[0];
