@@ -171,13 +171,19 @@ model Order {
 model OrderItem {
   id                  String            @id @default(cuid())
   orderId             String
-  cardboardProductId  String
+  cardboardProductId  String?
   productNameSnapshot String
   quantity            Int
   unitPrice           Decimal           @db.Decimal(12, 2)
   lineTotal           Decimal           @db.Decimal(12, 2)
+  // Custom box specs (for formula-based pricing)
+  boxType             String?           // "dus_baru" | "dus_pizza"
+  material            String?           // "singlewall" | "cflute" | "doublewall"
+  panjang             Float?
+  lebar               Float?
+  tinggi              Float?
   order               Order             @relation(fields: [orderId], references: [id])
-  cardboardProduct    CardboardProduct  @relation(fields: [cardboardProductId], references: [id])
+  cardboardProduct    CardboardProduct? @relation(fields: [cardboardProductId], references: [id])
 }
 
 model Invoice {

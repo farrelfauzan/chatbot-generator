@@ -15,12 +15,19 @@ export interface OrderCreateData {
   shippingAmount: number;
   taxAmount: number;
   totalAmount: number;
+  sablonSides?: number;
+  sablonTotal?: number;
   items: Array<{
-    cardboardProductId: string;
+    cardboardProductId?: string;
     productNameSnapshot: string;
     quantity: number;
     unitPrice: number;
     lineTotal: number;
+    boxType?: string;
+    material?: string;
+    panjang?: number;
+    lebar?: number;
+    tinggi?: number;
   }>;
 }
 

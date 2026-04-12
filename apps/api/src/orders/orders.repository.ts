@@ -63,8 +63,27 @@ export class OrderRepository implements IOrderRepository {
         shippingAmount: data.shippingAmount,
         taxAmount: data.taxAmount,
         totalAmount: data.totalAmount,
+        sablonSides: data.sablonSides ?? 0,
+        sablonTotal: data.sablonTotal ?? 0,
         items: {
-          create: data.items,
+          create: data.items.map((item) => ({
+            ...(item.cardboardProductId
+              ? {
+                  cardboardProduct: {
+                    connect: { id: item.cardboardProductId },
+                  },
+                }
+              : {}),
+            productNameSnapshot: item.productNameSnapshot,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+            boxType: item.boxType,
+            material: item.material,
+            panjang: item.panjang,
+            lebar: item.lebar,
+            tinggi: item.tinggi,
+          })),
         },
       },
       include: { items: true },

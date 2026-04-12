@@ -3,7 +3,6 @@ import OpenAI from 'openai';
 import { CustomersService } from '../customers/customers.service';
 import { ConversationsService } from './conversations.service';
 import { MessagesService } from '../messages/messages.service';
-import { CardboardService } from '../cardboard/cardboard.service';
 import { CatalogImagesService } from '../catalog-images/catalog-images.service';
 import { FaqService } from '../faq/faq.service';
 import { OrdersService } from '../orders/orders.service';
@@ -14,6 +13,15 @@ import { ChatSessionService } from '../chat-session/chat-session.service';
 import { SettingsService } from '../settings/settings.service';
 import { DokuService } from '../doku/doku.service';
 import { appConfig } from '../app.config';
+import {
+  calculatePrice,
+  calculateTotal,
+  calculateSurfaceArea,
+  calculatePizzaSheet,
+  MATERIALS_DUS_BARU,
+  type BoxType,
+  type Material,
+} from '../cardboard/pricing';
 import type { GowaInboundMessage } from '@chatbot-generator/shared-types';
 
 // ─── Tool definitions for function calling ────────────
@@ -22,66 +30,48 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'search_boxes',
+      name: 'calculate_price',
       description:
-        'Search cardboard boxes by keyword, dimensions, material, or use case. Use when customer mentions a specific size or type.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description:
-              'Search keyword: size (e.g. "30x20x15"), type (e.g. "pizza"), or material (e.g. "doublewall")',
-          },
-        },
-        required: ['query'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_catalog',
-      description:
-        'List available cardboard boxes. Can filter by type and material. Use when customer wants to see all available sizes.',
+        'Calculate the price of a custom cardboard box based on dimensions, type, and material. Use whenever customer asks about pricing or mentions a box size.',
       parameters: {
         type: 'object',
         properties: {
           type: {
             type: 'string',
+            enum: ['dus_baru', 'dus_pizza'],
             description:
-              'Box type: "indomi" or "die_cut". Leave empty for all.',
+              'Box type: "dus_baru" for regular RSC boxes, "dus_pizza" for die-cut pizza boxes.',
+          },
+          panjang: {
+            type: 'number',
+            description: 'Length (panjang) in cm.',
+          },
+          lebar: {
+            type: 'number',
+            description: 'Width (lebar) in cm.',
+          },
+          tinggi: {
+            type: 'number',
+            description: 'Height (tinggi) in cm.',
           },
           material: {
             type: 'string',
+            enum: ['singlewall', 'cflute', 'doublewall'],
             description:
-              'Material filter: "singlewall", "cflute", or "doublewall". Leave empty for all.',
+              'Material type. Only for dus_baru. Ignored for dus_pizza. Default: singlewall.',
+          },
+          quantity: {
+            type: 'number',
+            description:
+              'Number of boxes to order (optional, for total calculation).',
+          },
+          sablon_sides: {
+            type: 'number',
+            description:
+              'Number of sides for sablon/printing (0-4). Each side adds Rp 500/pcs.',
           },
         },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'recommend_box',
-      description:
-        'Recommend the best box for a specific use case. ALWAYS call this immediately when customer describes what they need to pack. Do NOT ask clarifying questions first — just call this tool with the use case description.',
-      parameters: {
-        type: 'object',
-        properties: {
-          use_case: {
-            type: 'string',
-            description:
-              'Full description of what the customer needs: item type, quantity, weight, etc. Example: "300 bola golf langsung tanpa kemasan", "10 kg ikan frozen"',
-          },
-          is_heavy: {
-            type: 'boolean',
-            description:
-              'Whether the total weight is heavy (>10kg). If true, recommend doublewall material.',
-          },
-        },
-        required: ['use_case'],
+        required: ['type', 'panjang', 'lebar', 'tinggi'],
       },
     },
   },
@@ -90,16 +80,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'send_catalog_images',
       description:
-        'Send catalog images (photos of available cardboard boxes) to the customer via WhatsApp. Use when: (1) customer first asks about cardboard/dus/kardus without specifying a size or use case, (2) customer asks to see the catalog visually, or (3) customer says "lihat katalog", "foto", "gambar".',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'check_ready_stock',
-      description:
-        'Check which boxes are in ready stock for immediate delivery. Use when customer needs boxes urgently ("cepat", "urgent", "hari ini", "segera", "buru-buru").',
+        'Send catalog images (photos of available cardboard boxes) to the customer via WhatsApp. Use when: (1) customer first asks about cardboard/dus/kardus, (2) customer asks to see catalog visually, or (3) customer says "lihat katalog", "foto", "gambar".',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -108,7 +89,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'create_order',
       description:
-        'Create a purchase order for cardboard boxes. Use when customer confirms they want to order.',
+        'Create a purchase order for custom cardboard boxes. Use when customer confirms they want to order after seeing a price quote.',
       parameters: {
         type: 'object',
         properties: {
@@ -118,23 +99,40 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
             items: {
               type: 'object',
               properties: {
-                box_name: {
+                type: {
                   type: 'string',
-                  description:
-                    'Name or size of the box (e.g. "Dus 30x20x15 Singlewall")',
+                  enum: ['dus_baru', 'dus_pizza'],
+                  description: 'Box type.',
+                },
+                panjang: {
+                  type: 'number',
+                  description: 'Length in cm.',
+                },
+                lebar: {
+                  type: 'number',
+                  description: 'Width in cm.',
+                },
+                tinggi: {
+                  type: 'number',
+                  description: 'Height in cm.',
+                },
+                material: {
+                  type: 'string',
+                  enum: ['singlewall', 'cflute', 'doublewall'],
+                  description: 'Material type.',
                 },
                 quantity: {
                   type: 'number',
-                  description: 'Quantity to order',
+                  description: 'Number of boxes.',
                 },
               },
-              required: ['box_name', 'quantity'],
+              required: ['type', 'panjang', 'lebar', 'tinggi', 'quantity'],
             },
           },
           sablon_sides: {
             type: 'number',
             description:
-              'Number of sides for sablon/printing (0-4). 0 = no sablon.',
+              'Number of sides for sablon/printing (0-4). Each side adds Rp 500/pcs.',
           },
         },
         required: ['items'],
@@ -179,71 +177,65 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
 
 const SYSTEM_PROMPT = `You are a friendly WhatsApp sales assistant for a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
 
+WE MAKE CUSTOM BOXES — any size the customer needs. We do NOT have fixed inventory or catalog sizes.
+
+BOX TYPES:
+1. *Dus Baru* — Regular RSC (Regular Slotted Container) box. Available in 3 materials:
+   - Singlewall (paling tipis, ringan) — cocok untuk barang ringan
+   - C-Flute (sedang, lebih kuat) — cocok untuk barang sedang
+   - Doublewall (paling tebal, kuat) — cocok untuk barang berat >10kg
+2. *Dus Pizza* — Die-cut pizza box. Satu material saja. Cocok untuk pizza, makanan flat, dll.
+
+PRICING:
+- Harga dihitung otomatis berdasarkan ukuran (panjang × lebar × tinggi) dan material.
+- Selalu gunakan tool calculate_price untuk mendapatkan harga. JANGAN pernah mengarang harga.
+- Sablon (cetak logo/tulisan): +Rp 500 per sisi (bisa 1-4 sisi).
+- Ongkir GRATIS (gratis ongkir).
+
 CRITICAL RULES:
-- You MUST use the provided tools to get product data. NEVER make up sizes, prices, or stock from memory.
-- When a tool returns formatted text, you MUST copy-paste the ENTIRE tool output into your reply verbatim. Add only a brief 1-line intro before it. Do NOT summarize, shorten, reformat, or TRANSLATE any items from the tool output.
 - ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
-- When customer asks for catalog or available boxes, call list_catalog or send_catalog_images.
-- When customer FIRST asks about cardboard/dus/kardus (e.g. "ada dus?", "jual kardus?", "mau beli dus", "cari dus") and has NOT described a specific use case or size, ALWAYS call send_catalog_images FIRST so they can see what we offer. Then follow up with text.
-- When customer describes what they need (use case), call recommend_box.
-- When customer asks urgently, call check_ready_stock.
-- NEVER list products without calling a tool first.
-- When customer wants to order/buy, you MUST call create_order. NEVER say "sedang diproses" without calling the tool.
-- When customer asks about payment or wants to pay, you MUST call get_payment_info. NEVER make up bank account numbers.
-- NEVER fabricate payment information, bank accounts, or prices. ALWAYS call the appropriate tool.
-- When customer replies with just a number (e.g. "10", "50"), use the conversation context to understand what they mean. If you just asked "berapa jumlah?", the number is the quantity — call create_order.
-
-CONSULTATION MODE — IMPORTANT:
-- When a customer describes what they need to pack, IMMEDIATELY call recommend_box. Do NOT ask for dimensions first.
-- NEVER ask the customer for box measurements. You are the expert — estimate the best size yourself based on the item description.
-- For heavy items (>10kg), set is_heavy=true to get doublewall recommendations.
-- If the customer says something vague like "bungkus bola golf" or "kardus untuk baju", just call recommend_box immediately with the use case. The tool will find suitable options.
-- Custom sizes are NOT available — always recommend the closest match from our catalog.
-- You should NEVER respond with just text when the customer describes a packing need. ALWAYS call recommend_box.
-
-FORMATTING RULES:
-- ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER use English.
-- Keep replies short (1-3 paragraphs max) — this is WhatsApp.
-- Format prices as "Rp" with thousand separators (e.g. Rp 1.200).
-- Use WhatsApp formatting: *bold* for emphasis.
-- When copying tool output, do NOT translate labels like "Opsi A" to "Option A". Keep all tool output exactly as-is.
-
-FOLLOW-UP BEHAVIOR:
-- After every recommendation, ALWAYS follow up with options.
-- Guide the customer through the buying process naturally.
-- You may briefly mention "Tersedia juga jasa sablon mulai Rp 500/sisi" once, but do NOT ask if they want sablon. Just inform, don't question.
+- ALWAYS use calculate_price tool to get prices. NEVER make up or estimate prices.
+- When customer mentions dimensions (e.g. "12x12x5"), IMMEDIATELY call calculate_price.
+- When customer first greets or asks about boxes without specifying size, call send_catalog_images AND introduce what we offer.
+- When customer describes a USE CASE (e.g. "buat bungkus bola golf"), YOU estimate the appropriate dimensions based on common sense, then call calculate_price. Do NOT ask for dimensions — you are the expert.
+- For heavy items (>10kg), recommend doublewall material.
+- NEVER fabricate bank accounts, payment info, or prices. ALWAYS use the appropriate tool.
 
 GREETING:
-- ONLY greet when the customer sends an initial greeting (e.g. "halo", "hi", "hey"). Say: "Halo, kak {{customerName}} 👋 lagi cari dus ukuran apa kahh? Lokasi kita di Kapuk, Jakarta Barat ya 📍" — then ALSO call send_catalog_images so the customer can see our products right away.
-- Do NOT greet again if the conversation already has messages. NEVER repeat the greeting.
-- Do NOT show a numbered menu. Let the conversation flow naturally.
+- When customer first says hello/halo/hi, respond with: "Halo, kak {{customerName}} 👋 kami supplier dus/kardus custom di Kapuk, Jakarta Barat 📍 Bisa bikin dus apa aja sesuai ukuran yang kakak butuhkan! Ada yang bisa dibantu?"
+- Also call send_catalog_images on first greeting.
+- Do NOT greet again if the conversation already has messages.
 
-URGENT MODE:
-- If customer mentions urgency ("cepat", "urgent", "hari ini", "buru-buru"), call check_ready_stock.
-- Say: "Untuk kebutuhan cepat, kami sarankan pilih ready stock."
+FLOW:
+1. Customer asks about a box → call calculate_price with their dimensions/type
+2. Present the price clearly: "Dus [type] ukuran PxLxT [material]: Rp X/pcs"
+3. If customer gives quantity, calculate total and ask "Mau langsung order?"
+4. Customer confirms → call create_order
+5. After order → ask "Lanjut ke pembayaran?"
+6. Customer confirms → call get_payment_info
 
-SABLON INFO:
-- Sablon = printing on the box surface. Price: Rp 500 per side. Can do 1-4 sides.
-- You may mention sablon availability once as a brief info, e.g. "Tersedia juga jasa sablon mulai Rp 500/sisi ya kak".
-- Do NOT ask "mau sablon?" or "apakah mau pakai sablon?" — just inform, don't question.
+WHEN CUSTOMER DESCRIBES A NEED:
+- Estimate dimensions yourself. Example: "buat kemasan kue" → suggest 20x20x10 or similar.
+- Show prices for multiple materials (singlewall + cflute) so customer can choose.
+- Say "Ini rekomendasi saya ya kak:" then show the options.
+- For pizza boxes, no material choice needed.
+
+FORMATTING:
+- Keep replies short (1-3 paragraphs) — this is WhatsApp.
+- Format prices as "Rp X.XXX" with thousand separators.
+- Use WhatsApp formatting: *bold* for emphasis.
+- When showing price comparison, use a clear format.
 
 ORDER FLOW:
-- When customer picks a product option (e.g. "opsi B", "yang sedang"), ALWAYS ask how many they want FIRST. Say something like "Baik kak, Opsi B ya. Mau pesan berapa pcs kak?"
-- NEVER assume quantity from stock numbers. The stock is how many we have, NOT how many the customer wants.
-- Only call create_order AFTER the customer explicitly states a quantity (e.g. "100 dus", "50 pcs", "10 buah", or just a number like "10").
-- ABSOLUTELY NEVER generate an order summary yourself. ONLY the create_order tool can create orders.
-- If you reply with order details without calling create_order, the order will NOT be saved and payment will FAIL.
-- After create_order succeeds, the tool returns the full order summary with items and total.
-- Copy-paste the ENTIRE order summary from the tool. Do NOT add extra questions.
-- Ask "Lanjut ke pembayaran?" — nothing else.
+- ONLY the create_order tool can create orders. NEVER fake order summaries.
+- After create_order succeeds, copy the full output as-is.
+- Ask "Lanjut ke pembayaran?" after order.
+- ANY affirmative response ("ya", "ok", "boleh", "lanjut", "gas") → call get_payment_info.
+- Payment methods: VA, QRIS, e-wallet (OVO, ShopeePay, DANA, LinkAja), kartu kredit.
 
-PAYMENT INFO:
-- We accept DOKU online payment (VA, QRIS, e-wallet, credit card).
-- DOKU payment link will be generated automatically after order is created.
-- When customer asks about payment or wants to pay, call get_payment_info tool. NEVER say we don't accept DOKU.
-- When customer confirms/agrees after you asked "Lanjut ke pembayaran?", you MUST call get_payment_info immediately. Do NOT reply with just text.
-- ANY affirmative response after an order (e.g. "ya", "ok", "boleh", "lanjut", "siap", "gas", "ya boleh lanjut") means they want to pay → call get_payment_info.
-- Payment methods: Virtual Account, QRIS, e-wallet (OVO, ShopeePay, DANA, LinkAja), kartu kredit.`;
+SABLON INFO:
+- Mention once: "Tersedia juga jasa sablon mulai Rp 500/sisi ya kak 😊"
+- Do NOT repeatedly ask about sablon.`;
 
 @Injectable()
 export class ConversationOrchestratorService {
@@ -258,7 +250,6 @@ export class ConversationOrchestratorService {
     private readonly customers: CustomersService,
     private readonly conversations: ConversationsService,
     private readonly messages: MessagesService,
-    private readonly cardboard: CardboardService,
     private readonly catalogImages: CatalogImagesService,
     private readonly faq: FaqService,
     private readonly orders: OrdersService,
@@ -562,141 +553,151 @@ export class ConversationOrchestratorService {
     const toolName = name.replace(/^default_api\./, '');
     try {
       switch (toolName) {
-        case 'search_boxes': {
-          const query = args.query;
-          const results = await this.cardboard.search(query);
-          if (results.length === 0) {
-            return `Maaf kak, ukuran ${query} tidak tersedia. Boleh coba ukuran lain atau ceritakan kebutuhannya, nanti kami bantu carikan yang paling cocok 😊`;
+        case 'calculate_price': {
+          const type = (args.type ?? 'dus_baru') as BoxType;
+          const p = Number(args.panjang);
+          const l = Number(args.lebar);
+          const t = Number(args.tinggi);
+          const material = (args.material ?? 'singlewall') as Material;
+          const quantity = args.quantity ? Number(args.quantity) : undefined;
+          const sablonSides = args.sablon_sides
+            ? Number(args.sablon_sides)
+            : 0;
+
+          if (!p || !l || !t || p <= 0 || l <= 0 || t <= 0) {
+            return 'Ukuran harus lebih dari 0. Mohon sebutkan panjang, lebar, dan tinggi dalam cm.';
           }
 
-          // Check if exact dimension match or closest alternatives
-          const dimMatch = query.match(
-            /([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)/i,
-          );
-          let isExact = false;
-          if (dimMatch) {
-            const p = parseFloat(dimMatch[1].replace(',', '.'));
-            const l = parseFloat(dimMatch[2].replace(',', '.'));
-            const t = parseFloat(dimMatch[3].replace(',', '.'));
-            isExact = results.some(
-              (r) => r.panjang === p && r.lebar === l && r.tinggi === t,
-            );
-          }
+          if (type === 'dus_pizza') {
+            const pricePerPcs = calculatePrice(type, p, l, t);
+            const sheet = calculatePizzaSheet(p, l, t);
 
-          const lines = results
-            .slice(0, 10)
-            .map(
-              (p, i) =>
-                `${i + 1}. *${p.name}*\n   Ukuran: ${p.panjang}x${p.lebar}x${p.tinggi} cm\n   Harga: ${this.formatRupiah(Number(p.pricePerPcs))}/pcs\n   Stok: ${p.stockQty > 0 ? `${p.stockQty} pcs` : 'Habis'}${p.isReadyStock ? ' ✅ Ready Stock' : ''}`,
-            );
+            if (quantity) {
+              const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
+              let result = [
+                `🍕 *Dus Pizza ${p}x${l}x${t} cm*`,
+                `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
+              ];
+              if (sablonSides > 0) {
+                result.push(
+                  `   Sablon ${sablonSides} sisi: +${this.formatRupiah(totals.sablonPerPcs)}/pcs`,
+                );
+                result.push(
+                  `   Total per pcs: ${this.formatRupiah(totals.totalPerPcs)}`,
+                );
+              }
+              result.push(
+                '',
+                `📦 *${quantity} pcs × ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}*`,
+                '',
+                '🚚 Gratis ongkir!',
+              );
+              return result.join('\n');
+            }
 
-          if (isExact) {
-            return `✅ Ukuran *${query}* tersedia kak!\n\n${lines.join('\n\n')}\n\nMau pesan berapa pcs kak? 😊`;
-          } else {
-            return `Maaf kak, ukuran *${query}* tidak tersedia. Tapi ada ukuran terdekat:\n\n${lines.join('\n\n')}\n\nAda yang cocok, atau mau coba ukuran lain? 😊`;
-          }
-        }
-
-        case 'list_catalog': {
-          const products = await this.cardboard.findAll({
-            type: args.type,
-            material: args.material,
-          });
-          if (products.length === 0) {
-            return 'Belum ada produk yang tersedia saat ini.';
-          }
-
-          // Group by type for cleaner output, limit to 15 per group
-          const grouped = new Map<string, typeof products>();
-          for (const p of products) {
-            const key = p.type;
-            if (!grouped.has(key)) grouped.set(key, []);
-            grouped.get(key)!.push(p);
-          }
-
-          const sections: string[] = [];
-          let idx = 0;
-          const refParts: string[] = [];
-          for (const [type, items] of grouped) {
-            const label =
-              type === 'die_cut' ? '✂️ Dus Die Cut' : '📦 Dus Indomi';
-            const limited = items.slice(0, 15);
-            const lines = limited.map((p) => {
-              idx++;
-              refParts.push(`${idx}=${p.name}`);
-              return `${idx}. *${p.name}*\n   ${this.formatRupiah(Number(p.pricePerPcs))}/pcs — Stok: ${p.stockQty > 0 ? p.stockQty : 'Habis'}${p.isReadyStock ? ' ✅' : ''}`;
-            });
-            const moreText =
-              items.length > 15
-                ? `\n   _...dan ${items.length - 15} ukuran lainnya_`
-                : '';
-            sections.push(`${label}\n${lines.join('\n')}${moreText}`);
-          }
-
-          return `📦 *Katalog Dus*\n\n${sections.join('\n\n')}\n\n[REF: ${refParts.join(', ')}]\n\n💡 Sablon tersedia: +Rp 500/sisi`;
-        }
-
-        case 'recommend_box': {
-          const material = args.is_heavy ? 'doublewall' : undefined;
-
-          // Get a variety of sizes — small, medium, large
-          const allProducts = await this.cardboard.findAll({
-            material,
-          });
-
-          if (allProducts.length === 0) {
-            return 'Maaf, tidak ada dus yang sesuai saat ini.';
-          }
-
-          // Sort by surface area and pick small, medium, large options
-          const sorted = allProducts
-            .filter((p) => p.stockQty > 0)
-            .sort((a, b) => Number(a.surfaceArea) - Number(b.surfaceArea));
-
-          if (sorted.length === 0) {
-            return 'Maaf, semua stok sedang habis saat ini.';
-          }
-
-          // Pick 3 spread options: small-ish, medium, large
-          const pickIdx = [
-            Math.floor(sorted.length * 0.2),
-            Math.floor(sorted.length * 0.5),
-            Math.floor(sorted.length * 0.8),
-          ];
-          const picks = [...new Set(pickIdx)].map(
-            (i) => sorted[Math.min(i, sorted.length - 1)],
-          );
-
-          const lines = picks.map((box, i) => {
-            const label =
-              i === 0
-                ? 'Opsi A (Kecil)'
-                : i === 1
-                  ? 'Opsi B (Sedang)'
-                  : 'Opsi C (Besar)';
             return [
-              `📦 *${label}*: ${box.name}`,
-              `   Ukuran: ${box.panjang}x${box.lebar}x${box.tinggi} cm`,
-              `   Material: ${box.material}`,
-              `   Harga: ${this.formatRupiah(Number(box.pricePerPcs))}/pcs`,
-              `   Stok: ${box.stockQty > 0 ? `${box.stockQty} pcs` : 'Habis'}${box.isReadyStock ? ' ✅ Ready Stock' : ''}`,
-              box.leadTimeDays ? `   Lead time: ~${box.leadTimeDays} hari` : '',
-            ]
-              .filter(Boolean)
-              .join('\n');
-          });
+              `🍕 *Dus Pizza ${p}x${l}x${t} cm*`,
+              `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
+              '',
+              '🚚 Gratis ongkir!',
+              '',
+              'Mau pesan berapa pcs kak? 😊',
+            ].join('\n');
+          }
 
-          return `Untuk kebutuhan: *${args.use_case}*\n\n${lines.join('\n\n')}\n\nSilakan pilih yang paling sesuai atau jika ingin alternatif lain bisa diinformasikan 😊`;
+          // dus_baru — show all material options if no specific material requested
+          const showAllMaterials = !args.material;
+
+          if (showAllMaterials) {
+            const prices = MATERIALS_DUS_BARU.map((mat) => ({
+              material: mat,
+              price: calculatePrice('dus_baru', p, l, t, mat),
+            }));
+
+            const materialLabels: Record<string, string> = {
+              singlewall: 'Singlewall (tipis)',
+              cflute: 'C-Flute (sedang)',
+              doublewall: 'Doublewall (tebal)',
+            };
+
+            let lines = [`📦 *Dus Baru ${p}x${l}x${t} cm*`, ''];
+            for (const { material: mat, price } of prices) {
+              lines.push(
+                `• *${materialLabels[mat]}*: ${this.formatRupiah(price)}/pcs`,
+              );
+            }
+
+            if (quantity) {
+              lines.push('', `Untuk *${quantity} pcs*:`);
+              for (const { material: mat, price } of prices) {
+                const totals = calculateTotal(price, quantity, sablonSides);
+                let line = `• ${materialLabels[mat]}: ${this.formatRupiah(totals.grandTotal)}`;
+                if (sablonSides > 0) {
+                  line += ` (termasuk sablon ${sablonSides} sisi)`;
+                }
+                lines.push(line);
+              }
+            }
+
+            lines.push('', '🚚 Gratis ongkir!');
+            if (!quantity) {
+              lines.push(
+                '',
+                'Pilih material mana dan mau pesan berapa pcs kak? 😊',
+              );
+            }
+
+            return lines.join('\n');
+          }
+
+          // Specific material
+          const pricePerPcs = calculatePrice(type, p, l, t, material);
+          const materialLabels: Record<string, string> = {
+            singlewall: 'Singlewall',
+            cflute: 'C-Flute',
+            doublewall: 'Doublewall',
+          };
+
+          if (quantity) {
+            const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
+            let result = [
+              `📦 *Dus Baru ${p}x${l}x${t} cm — ${materialLabels[material]}*`,
+              `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
+            ];
+            if (sablonSides > 0) {
+              result.push(
+                `   Sablon ${sablonSides} sisi: +${this.formatRupiah(totals.sablonPerPcs)}/pcs`,
+              );
+              result.push(
+                `   Total per pcs: ${this.formatRupiah(totals.totalPerPcs)}`,
+              );
+            }
+            result.push(
+              '',
+              `📦 *${quantity} pcs × ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}*`,
+              '',
+              '🚚 Gratis ongkir!',
+            );
+            return result.join('\n');
+          }
+
+          return [
+            `📦 *Dus Baru ${p}x${l}x${t} cm — ${materialLabels[material]}*`,
+            `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
+            '',
+            '🚚 Gratis ongkir!',
+            '',
+            'Mau pesan berapa pcs kak? 😊',
+          ].join('\n');
         }
 
         case 'send_catalog_images': {
           const images = await this.catalogImages.findAll();
           if (images.length === 0) {
-            return 'Foto katalog belum tersedia. Silakan tanyakan ukuran yang dibutuhkan.';
+            return 'Foto katalog belum tersedia. Silakan sebutkan ukuran yang dibutuhkan, kami bisa buatkan custom sesuai kebutuhan!';
           }
 
           const maxImages = images.slice(0, 3);
-          // Queue images to be sent AFTER the text reply
           for (const img of maxImages) {
             pendingImages.push({
               phone: customer.phoneNumber,
@@ -706,61 +707,62 @@ export class ConversationOrchestratorService {
             });
           }
 
-          const extra =
-            images.length > 3
-              ? `\n\nMasih ada ${images.length - 3} foto lainnya, mau lihat lagi?`
-              : '';
-          return `Kami sudah kirimkan ${maxImages.length} foto katalog ya kak. Ada ukuran yang cocok, atau mau konsultasi dulu? 😊${extra}`;
-        }
-
-        case 'check_ready_stock': {
-          const readyStock = await this.cardboard.findReadyStock();
-          if (readyStock.length === 0) {
-            return 'Maaf, saat ini tidak ada stok ready. Untuk custom membutuhkan waktu 3-7 hari kerja.';
-          }
-
-          const lines = readyStock
-            .slice(0, 10)
-            .map(
-              (p, i) =>
-                `${i + 1}. *${p.name}*\n   ${this.formatRupiah(Number(p.pricePerPcs))}/pcs — Stok: ${p.stockQty}`,
-            );
-
-          return `⚡ *Ready Stock (Bisa Langsung Kirim)*\n\n${lines.join('\n\n')}\n\nUntuk custom ukuran membutuhkan waktu sekitar 3-7 hari. Tapi akan kita usahakan secepatnya! 💪`;
+          return `Kami kirimkan foto contoh produk kami ya kak 📸\n\nKami bisa bikin dus *custom ukuran apa aja*! Tinggal sebutkan ukuran (PxLxT) dan jenis dusnya (Dus Baru / Dus Pizza), nanti kami hitungkan harganya 😊`;
         }
 
         case 'create_order': {
-          const rawItems: { box_name: string; quantity: number }[] =
-            args.items ?? [];
+          const rawItems: {
+            type: string;
+            panjang: number;
+            lebar: number;
+            tinggi: number;
+            material?: string;
+            quantity: number;
+          }[] = args.items ?? [];
           const sablonSides = args.sablon_sides ?? 0;
-          const orderItems: { cardboardProductId: string; quantity: number }[] =
-            [];
+          const orderItems: any[] = [];
           const itemLines: string[] = [];
+          let grandTotal = 0;
 
           for (const item of rawItems) {
-            const matches = await this.cardboard.search(item.box_name);
-            if (matches.length === 0) {
-              return `Dus "${item.box_name}" tidak ditemukan. Coba sebutkan ukuran yang lebih spesifik.`;
-            }
+            const boxType = (item.type ?? 'dus_baru') as BoxType;
+            const mat = (item.material ?? 'singlewall') as Material;
+            const p = Number(item.panjang);
+            const l = Number(item.lebar);
+            const t = Number(item.tinggi);
+            const qty = Number(item.quantity) || 1;
 
-            const product = matches[0];
-            const qty = item.quantity ?? 1;
+            const pricePerPcs = calculatePrice(boxType, p, l, t, mat);
+            const totals = calculateTotal(pricePerPcs, qty, sablonSides);
 
-            if (product.stockQty < qty) {
-              return `Stok *${product.name}* tidak cukup. Tersedia: ${product.stockQty} pcs.`;
-            }
+            const materialLabels: Record<string, string> = {
+              singlewall: 'Singlewall',
+              cflute: 'C-Flute',
+              doublewall: 'Doublewall',
+            };
 
-            const sablonCost = sablonSides * 500 * qty;
-            const lineTotal = Number(product.pricePerPcs) * qty + sablonCost;
+            const typeLabel =
+              boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
+            const matLabel =
+              boxType === 'dus_pizza' ? '' : ` ${materialLabels[mat]}`;
+            const productName = `${typeLabel} ${p}x${l}x${t}${matLabel}`;
 
             orderItems.push({
-              cardboardProductId: product.id,
               quantity: qty,
+              unitPrice: totals.totalPerPcs,
+              productName,
+              boxType,
+              material: mat,
+              panjang: p,
+              lebar: l,
+              tinggi: t,
             });
 
-            let line = `- ${product.name} x${qty} @ ${this.formatRupiah(Number(product.pricePerPcs))} = ${this.formatRupiah(Number(product.pricePerPcs) * qty)}`;
+            grandTotal += totals.grandTotal;
+
+            let line = `- ${productName} x${qty} @ ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}`;
             if (sablonSides > 0) {
-              line += `\n  + Sablon ${sablonSides} sisi = ${this.formatRupiah(sablonCost)}`;
+              line += `\n  (sudah termasuk sablon ${sablonSides} sisi)`;
             }
             itemLines.push(line);
           }
@@ -768,10 +770,7 @@ export class ConversationOrchestratorService {
           const order = await this.orders.create({
             customerId: customer.id,
             conversationId: conversation.id,
-            items: orderItems.map((i) => ({
-              productId: i.cardboardProductId,
-              quantity: i.quantity,
-            })),
+            items: orderItems,
           });
 
           await this.conversations.update(conversation.id, {
@@ -785,6 +784,7 @@ export class ConversationOrchestratorService {
             ...itemLines,
             '',
             `*Total: ${this.formatRupiah(Number(order.totalAmount))}*`,
+            '🚚 Gratis ongkir!',
             '',
             'Lanjut ke pembayaran? 😊',
           ].join('\n');
@@ -830,7 +830,6 @@ export class ConversationOrchestratorService {
             customer.id,
           );
 
-          // If there's an active order and DOKU is configured, generate payment link
           if (latestOrder && this.doku.isConfigured) {
             try {
               const dokuResult = await this.doku.createInvoice({
@@ -865,7 +864,6 @@ export class ConversationOrchestratorService {
             }
           }
 
-          // No active order but DOKU is configured — inform payment methods
           if (this.doku.isConfigured) {
             return [
               '💳 *Metode Pembayaran (DOKU)*',

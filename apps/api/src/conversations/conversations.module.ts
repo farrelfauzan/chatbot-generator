@@ -13,7 +13,6 @@ import { PaymentsModule } from '../payments/payments.module';
 import { GowaModule } from '../gowa/gowa.module';
 import { ChatSessionModule } from '../chat-session/chat-session.module';
 import { SettingsModule } from '../settings/settings.module';
-import { CardboardModule } from '../cardboard/cardboard.module';
 import { CatalogImagesModule } from '../catalog-images/catalog-images.module';
 import { DokuModule } from '../doku/doku.module';
 
@@ -28,7 +27,6 @@ import { DokuModule } from '../doku/doku.module';
     GowaModule,
     ChatSessionModule,
     SettingsModule,
-    CardboardModule,
     CatalogImagesModule,
     DokuModule,
   ],

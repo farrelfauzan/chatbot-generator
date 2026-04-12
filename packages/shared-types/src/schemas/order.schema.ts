@@ -2,8 +2,16 @@ import { z } from "zod";
 import { orderStatusSchema } from "../enums";
 
 export const createOrderItemSchema = z.object({
-  productId: z.string().min(1),
+  productId: z.string().min(1).optional(),
   quantity: z.number().int().positive(),
+  // Custom box specs (for formula-based pricing)
+  boxType: z.string().optional(),
+  material: z.string().optional(),
+  panjang: z.number().optional(),
+  lebar: z.number().optional(),
+  tinggi: z.number().optional(),
+  unitPrice: z.number().optional(),
+  productName: z.string().optional(),
 });
 
 export type CreateOrderItemInput = z.infer<typeof createOrderItemSchema>;
@@ -28,11 +36,16 @@ export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export const orderItemResponseSchema = z.object({
   id: z.string(),
   orderId: z.string(),
-  cardboardProductId: z.string(),
+  cardboardProductId: z.string().nullable(),
   productNameSnapshot: z.string(),
   quantity: z.number(),
   unitPrice: z.number(),
   lineTotal: z.number(),
+  boxType: z.string().nullable().optional(),
+  material: z.string().nullable().optional(),
+  panjang: z.number().nullable().optional(),
+  lebar: z.number().nullable().optional(),
+  tinggi: z.number().nullable().optional(),
 });
 
 export type OrderItemResponse = z.infer<typeof orderItemResponseSchema>;

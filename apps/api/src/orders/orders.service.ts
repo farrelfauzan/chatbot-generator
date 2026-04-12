@@ -37,20 +37,37 @@ export class OrdersService {
     let subtotal = 0;
 
     for (const item of input.items) {
-      const product = await this.cardboard.findById(item.productId);
-      if (!product) {
-        throw new NotFoundException(`Product ${item.productId} not found`);
+      let productName: string;
+      let price: number;
+
+      if (item.productId) {
+        // Legacy: lookup from database
+        const product = await this.cardboard.findById(item.productId);
+        if (!product) {
+          throw new NotFoundException(`Product ${item.productId} not found`);
+        }
+        productName = product.name;
+        price = Number(product.pricePerPcs);
+      } else {
+        // Formula-based: price & name provided directly
+        productName = item.productName ?? 'Custom Box';
+        price = item.unitPrice ?? 0;
       }
-      const price = Number(product.pricePerPcs);
+
       const lineTotal = price * item.quantity;
       subtotal += lineTotal;
 
       items.push({
-        cardboardProductId: product.id,
-        productNameSnapshot: product.name,
+        cardboardProductId: item.productId,
+        productNameSnapshot: productName,
         quantity: item.quantity,
         unitPrice: price,
         lineTotal,
+        boxType: item.boxType,
+        material: item.material,
+        panjang: item.panjang,
+        lebar: item.lebar,
+        tinggi: item.tinggi,
       });
     }
 
