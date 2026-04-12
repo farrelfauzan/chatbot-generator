@@ -50,7 +50,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
           type: {
             type: 'string',
             description:
-              'Box type: "dus_baru" or "dus_pizza". Leave empty for all.',
+              'Box type: "indomi" or "die_cut". Leave empty for all.',
           },
           material: {
             type: 'string',
@@ -562,7 +562,7 @@ export class ConversationOrchestratorService {
           let idx = 0;
           const refParts: string[] = [];
           for (const [type, items] of grouped) {
-            const label = type === 'dus_pizza' ? '🍕 Dus Pizza' : '📦 Dus Baru';
+            const label = type === 'die_cut' ? '✂️ Dus Die Cut' : '📦 Dus Indomi';
             const limited = items.slice(0, 15);
             const lines = limited.map((p) => {
               idx++;

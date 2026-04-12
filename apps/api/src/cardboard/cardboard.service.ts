@@ -33,15 +33,44 @@ export class CardboardService {
   }
 
   async search(term: string) {
+    // Try exact dimension match first (e.g. "15x5x6")
+    const dimMatch = term.match(
+      /([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)\s*x\s*([\d]+(?:[.,][\d]+)?)/i,
+    );
+    if (dimMatch) {
+      const p = parseFloat(dimMatch[1].replace(',', '.'));
+      const l = parseFloat(dimMatch[2].replace(',', '.'));
+      const t = parseFloat(dimMatch[3].replace(',', '.'));
+      const byDim = await this.prisma.client.cardboardProduct.findMany({
+        where: { panjang: p, lebar: l, tinggi: t, isActive: true },
+        orderBy: { pricePerPcs: 'asc' },
+      });
+      if (byDim.length > 0) return byDim;
+    }
+
+    // Split into keywords and match any word
+    const keywords = term
+      .split(/[\s,]+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 2);
+
+    const orConditions = keywords.flatMap((kw) => [
+      { name: { contains: kw, mode: 'insensitive' as any } },
+      { type: { contains: kw, mode: 'insensitive' as any } },
+      { material: { contains: kw, mode: 'insensitive' as any } },
+      { description: { contains: kw, mode: 'insensitive' as any } },
+    ]);
+
+    if (orConditions.length === 0) {
+      orConditions.push(
+        { name: { contains: term, mode: 'insensitive' as any } },
+      );
+    }
+
     return this.prisma.client.cardboardProduct.findMany({
       where: {
         isActive: true,
-        OR: [
-          { name: { contains: term, mode: 'insensitive' as any } },
-          { type: { contains: term, mode: 'insensitive' as any } },
-          { material: { contains: term, mode: 'insensitive' as any } },
-          { description: { contains: term, mode: 'insensitive' as any } },
-        ],
+        OR: orConditions,
       },
       orderBy: { pricePerPcs: 'asc' },
     });
