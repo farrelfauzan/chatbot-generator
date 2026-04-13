@@ -15,6 +15,7 @@ import { ChatSessionModule } from '../chat-session/chat-session.module';
 import { SettingsModule } from '../settings/settings.module';
 import { CatalogImagesModule } from '../catalog-images/catalog-images.module';
 import { DokuModule } from '../doku/doku.module';
+import { PromptTemplateModule } from '../prompt-templates/prompt-template.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { DokuModule } from '../doku/doku.module';
     SettingsModule,
     CatalogImagesModule,
     DokuModule,
+    PromptTemplateModule,
   ],
   controllers: [ConversationsController],
   providers: [
