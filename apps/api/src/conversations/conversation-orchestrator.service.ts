@@ -101,7 +101,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'add_to_cart',
       description:
-        "Add a box item to the customer's cart. Use when customer wants to order a specific box after seeing the price. After adding, ALWAYS ask if they want to add more items.",
+        "Add a box item to the customer's cart. You MUST call this tool whenever customer wants to order — saying 'added to cart' in text does NOT actually add anything. Call this when customer mentions quantity with buying intent (e.g. 'pesan 100', 'mau 50pcs', 'ini juga 100 ya').",
       parameters: {
         type: 'object',
         properties: {
@@ -145,7 +145,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'view_cart',
       description:
-        "Show the current items in the customer's cart. Use when customer wants to see what they have in their cart, or before confirming an order.",
+        "Show the current items in the customer's cart and order summary. Call this IMMEDIATELY when customer says they are done adding items (e.g. 'sudah', 'itu aja', 'cukup', 'gak ada lagi', 'udah', 'segitu aja'). Also use when customer asks to see their cart.",
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -238,7 +238,7 @@ CRITICAL RULES:
 - When customer describes a USE CASE (e.g. "buat bungkus bola golf"), YOU estimate the appropriate dimensions based on common sense, then call calculate_price. Do NOT ask for dimensions — you are the expert.
 - For heavy items (>10kg), recommend doublewall material.
 - NEVER fabricate bank accounts, payment info, or prices. ALWAYS use the appropriate tool.
-- When customer wants to ORDER, you MUST call create_order tool. NEVER fake an order in text.
+- When customer wants to ORDER or mentions QUANTITY (e.g. "pesan 100", "mau 50pcs", "order 200"), you MUST call add_to_cart tool. NEVER fake adding to cart in text.
 - When customer wants to PAY, you MUST call get_payment_info tool. NEVER make up payment details.
 
 GREETING:
@@ -249,23 +249,37 @@ GREETING:
 FLOW:
 1. Customer asks about a box → call calculate_price with their dimensions/type
 2. Present the price clearly: "Dus [type] ukuran PxLxT [material]: Rp X/pcs"
-3. If customer gives quantity, calculate total and ask "Mau order?"
-4. Customer says they want to order → call add_to_cart to add item to cart
-5. After adding to cart, ALWAYS ask: "Ada lagi yang mau ditambahkan kak? 😊"
+3. If customer gives quantity WITH intent to buy (e.g. "pesan 100", "mau 50pcs", "order 200", "ini juga 100"), IMMEDIATELY call add_to_cart. Do NOT just show the total — you MUST call the add_to_cart tool.
+4. If customer gives quantity WITHOUT intent to buy (e.g. "kalau 100 berapa?"), call calculate_price with quantity to show the total, then ask "Mau order?"
+5. After add_to_cart succeeds, copy the tool output verbatim. ALWAYS ask: "Ada lagi yang mau ditambahkan kak? 😊"
 6. If customer wants more → repeat steps 1-5 for additional items
-7. If customer says "sudah", "cukup", "itu aja", "gak ada lagi", etc. → call view_cart to show order summary
+7. If customer says they are done (see DONE PHRASES below) → IMMEDIATELY call view_cart. Do NOT respond with text first.
 8. Show the full order summary and ask: "Sudah benar semua kak? Mau lanjut order?"
 9. Customer confirms the summary → call confirm_order to create the actual order
 10. After order created → ask "Lanjut ke pembayaran?"
 11. Customer confirms → call get_payment_info
 
+DONE PHRASES — these ALL mean "no more items, show summary":
+"sudah", "sudah itu aja", "itu aja", "itu saja", "cukup", "gak ada lagi", "tidak ada lagi",
+"udah", "udah itu aja", "ga ada", "ngga", "nggak", "engga", "enggak", "gak", "no",
+"segitu aja", "segitu dulu", "sampai situ aja", "udah cukup", "cukup segitu".
+When customer says ANY of these → call view_cart IMMEDIATELY. Do NOT ask again.
+
 CART RULES — ABSOLUTE:
-- When customer wants to buy, ALWAYS use add_to_cart first. NEVER call confirm_order directly.
+- When customer mentions quantity + intent to buy, you MUST call add_to_cart. NEVER just respond with text saying you added it.
+- After add_to_cart, copy-paste the ENTIRE tool output verbatim. Do NOT paraphrase or rewrite it.
+- If add_to_cart is not called, the item is NOT in the cart. Text responses do NOT add items.
 - After each add_to_cart, ALWAYS ask if they want to add more items.
 - Only call confirm_order AFTER showing the order summary (view_cart) AND the customer explicitly confirms.
 - If customer wants to remove an item, use remove_from_cart.
 - If customer wants to cancel everything, use remove_from_cart for each item or tell them the cart will be cleared.
 - The cart persists across messages in the same session, so items are not lost between messages.
+
+ADD TO CART — ABSOLUTE RULES:
+- You MUST call add_to_cart tool to add items. Writing "saya tambahkan ke keranjang" WITHOUT calling the tool means the item is NOT added.
+- Whenever you want to say "ditambahkan ke keranjang" or similar, you MUST have called add_to_cart in the SAME turn.
+- If the customer already saw a price and then says a quantity (e.g. "100 ya", "pesan 100", "ini juga 100"), call add_to_cart with the previously discussed dimensions + the quantity.
+- NEVER skip the add_to_cart tool call. Even if you know the price, the tool is what actually saves the item.
 
 ORDER CONFIRMATION — ABSOLUTE RULES:
 - You MUST show the full order summary (via view_cart) before calling confirm_order.
@@ -391,9 +405,9 @@ export class ConversationOrchestratorService {
       stageHint = [
         '\n⚠️ CONVERSATION STAGE: collecting_items',
         'The customer is building their cart. There are items in the cart already.',
-        'If the customer wants to add more items, use add_to_cart.',
-        'If the customer says they are done / no more items, call view_cart to show the summary.',
-        'Do NOT call confirm_order yet.\n',
+        'If the customer wants to add more items, use add_to_cart. You MUST call the tool, not just say you added it.',
+        'If the customer says they are done (e.g. "sudah", "itu aja", "sudah itu aja", "cukup", "gak ada lagi", "udah", "segitu aja", "engga", "ngga", "no"), call view_cart IMMEDIATELY.',
+        'Do NOT confirm_order yet — show the summary first via view_cart.\n',
       ].join('\n');
     } else if (conversation.stage === 'order_summary') {
       stageHint = [
