@@ -9,7 +9,10 @@ import { OrdersService } from '../orders/orders.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { PaymentsService } from '../payments/payments.service';
 import { GowaService } from '../gowa/gowa.service';
-import { ChatSessionService } from '../chat-session/chat-session.service';
+import {
+  ChatSessionService,
+  type CartItem,
+} from '../chat-session/chat-session.service';
 import { SettingsService } from '../settings/settings.service';
 import { DokuService } from '../doku/doku.service';
 import { appConfig } from '../app.config';
@@ -96,56 +99,82 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'create_order',
+      name: 'add_to_cart',
       description:
-        'Create a purchase order for custom cardboard boxes. Use when customer confirms they want to order after seeing a price quote.',
+        "Add a box item to the customer's cart. Use when customer wants to order a specific box after seeing the price. After adding, ALWAYS ask if they want to add more items.",
       parameters: {
         type: 'object',
         properties: {
-          items: {
-            type: 'array',
-            description: 'List of boxes to order',
-            items: {
-              type: 'object',
-              properties: {
-                type: {
-                  type: 'string',
-                  enum: ['dus_baru', 'dus_pizza'],
-                  description: 'Box type.',
-                },
-                panjang: {
-                  type: 'number',
-                  description: 'Length in cm.',
-                },
-                lebar: {
-                  type: 'number',
-                  description: 'Width in cm.',
-                },
-                tinggi: {
-                  type: 'number',
-                  description: 'Height in cm.',
-                },
-                material: {
-                  type: 'string',
-                  enum: ['singlewall', 'cflute', 'doublewall'],
-                  description: 'Material type.',
-                },
-                quantity: {
-                  type: 'number',
-                  description: 'Number of boxes.',
-                },
-              },
-              required: ['type', 'panjang', 'lebar', 'tinggi', 'quantity'],
-            },
+          type: {
+            type: 'string',
+            enum: ['dus_baru', 'dus_pizza'],
+            description: 'Box type.',
+          },
+          panjang: {
+            type: 'number',
+            description: 'Length in cm.',
+          },
+          lebar: {
+            type: 'number',
+            description: 'Width in cm.',
+          },
+          tinggi: {
+            type: 'number',
+            description: 'Height in cm.',
+          },
+          material: {
+            type: 'string',
+            enum: ['singlewall', 'cflute', 'doublewall'],
+            description: 'Material type.',
+          },
+          quantity: {
+            type: 'number',
+            description: 'Number of boxes.',
           },
           sablon_sides: {
             type: 'number',
-            description:
-              'Number of sides for sablon/printing (0-4). Each side adds Rp 500/pcs.',
+            description: 'Number of sides for sablon/printing (0-4).',
           },
         },
-        required: ['items'],
+        required: ['type', 'panjang', 'lebar', 'tinggi', 'quantity'],
       },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'view_cart',
+      description:
+        "Show the current items in the customer's cart. Use when customer wants to see what they have in their cart, or before confirming an order.",
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_from_cart',
+      description:
+        'Remove an item from the cart by its item number (1-based index).',
+      parameters: {
+        type: 'object',
+        properties: {
+          item_number: {
+            type: 'number',
+            description:
+              'The item number to remove (1-based, as shown in cart).',
+          },
+        },
+        required: ['item_number'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'confirm_order',
+      description:
+        'Confirm and place the order from all items currently in the cart. ONLY call this when the customer explicitly confirms they want to proceed with the order after seeing the order summary. This creates the actual order.',
+      parameters: { type: 'object', properties: {} },
     },
   },
   {
@@ -220,10 +249,29 @@ GREETING:
 FLOW:
 1. Customer asks about a box → call calculate_price with their dimensions/type
 2. Present the price clearly: "Dus [type] ukuran PxLxT [material]: Rp X/pcs"
-3. If customer gives quantity, calculate total and ask "Mau langsung order?"
-4. Customer confirms → call create_order
-5. After order → ask "Lanjut ke pembayaran?"
-6. Customer confirms → call get_payment_info
+3. If customer gives quantity, calculate total and ask "Mau order?"
+4. Customer says they want to order → call add_to_cart to add item to cart
+5. After adding to cart, ALWAYS ask: "Ada lagi yang mau ditambahkan kak? 😊"
+6. If customer wants more → repeat steps 1-5 for additional items
+7. If customer says "sudah", "cukup", "itu aja", "gak ada lagi", etc. → call view_cart to show order summary
+8. Show the full order summary and ask: "Sudah benar semua kak? Mau lanjut order?"
+9. Customer confirms the summary → call confirm_order to create the actual order
+10. After order created → ask "Lanjut ke pembayaran?"
+11. Customer confirms → call get_payment_info
+
+CART RULES — ABSOLUTE:
+- When customer wants to buy, ALWAYS use add_to_cart first. NEVER call confirm_order directly.
+- After each add_to_cart, ALWAYS ask if they want to add more items.
+- Only call confirm_order AFTER showing the order summary (view_cart) AND the customer explicitly confirms.
+- If customer wants to remove an item, use remove_from_cart.
+- If customer wants to cancel everything, use remove_from_cart for each item or tell them the cart will be cleared.
+- The cart persists across messages in the same session, so items are not lost between messages.
+
+ORDER CONFIRMATION — ABSOLUTE RULES:
+- You MUST show the full order summary (via view_cart) before calling confirm_order.
+- You MUST wait for explicit customer confirmation ("ya", "ok", "benar", "lanjut order", etc.) before calling confirm_order.
+- If customer wants to change something, help them modify the cart first before confirming.
+- NEVER call confirm_order without showing the summary first and getting confirmation.
 
 WHEN CUSTOMER DESCRIBES A NEED:
 - Estimate dimensions yourself. Example: "buat kemasan kue" → suggest 20x20x10 or similar.
@@ -238,11 +286,15 @@ FORMATTING:
 - When showing price comparison, use a clear format.
 
 ORDER FLOW — ABSOLUTE RULES:
-- You MUST call create_order tool to place an order. NEVER write an order summary yourself.
-- If you respond with order details WITHOUT calling create_order, the order is NOT saved and payment will FAIL.
-- After create_order succeeds, copy-paste the ENTIRE tool output verbatim. Do NOT add anything.
+- STEP 1: Customer says they want to order → call add_to_cart. NEVER call confirm_order here.
+- STEP 2: After adding to cart, ask "Ada lagi yang mau ditambah kak?"
+- STEP 3: When customer says no more items → call view_cart to show complete summary.
+- STEP 4: Ask "Sudah benar kak? Lanjut order?"
+- STEP 5: Customer confirms → call confirm_order. This is the ONLY time you may call confirm_order.
+- If you respond with order details WITHOUT calling confirm_order, the order is NOT saved and payment will FAIL.
+- After confirm_order succeeds, copy-paste the ENTIRE tool output verbatim. Do NOT add anything.
 - Then ask "Lanjut ke pembayaran?"
-- When customer says YES/OK/BOLEH/LANJUT/GAS/YA after an order, you MUST call get_payment_info tool. NO EXCEPTIONS.
+- When customer says YES/OK/BOLEH/LANJUT/GAS/YA or any other confirmation regarding to payment after an order, you MUST call get_payment_info tool. NO EXCEPTIONS.
 
 PAYMENT — ABSOLUTE RULES:
 - We ONLY accept payment via DOKU online payment link. There is NO bank transfer, NO manual transfer.
@@ -335,10 +387,26 @@ export class ConversationOrchestratorService {
     // 4. Build conversation history for context
     const history = await this.messages.findByConversationId(conversation.id);
     let stageHint = '';
-    if (conversation.stage === 'order_confirm') {
+    if (conversation.stage === 'collecting_items') {
+      stageHint = [
+        '\n⚠️ CONVERSATION STAGE: collecting_items',
+        'The customer is building their cart. There are items in the cart already.',
+        'If the customer wants to add more items, use add_to_cart.',
+        'If the customer says they are done / no more items, call view_cart to show the summary.',
+        'Do NOT call confirm_order yet.\n',
+      ].join('\n');
+    } else if (conversation.stage === 'order_summary') {
+      stageHint = [
+        '\n⚠️ CONVERSATION STAGE: order_summary',
+        'The customer has been shown the order summary and is deciding whether to confirm.',
+        'If the customer confirms (e.g. "ya", "ok", "benar", "lanjut", "order"), call confirm_order immediately.',
+        'If the customer wants to change items, help them modify the cart (add_to_cart / remove_from_cart).',
+        'If the customer wants to cancel, acknowledge and clear the cart.\n',
+      ].join('\n');
+    } else if (conversation.stage === 'order_confirm') {
       stageHint = [
         '\n⚠️ CONVERSATION STAGE: order_confirm',
-        'The customer has a pending order waiting for payment.',
+        'The customer has a confirmed order waiting for payment.',
         'If the customer agrees, confirms, or says anything affirmative (e.g. "ya", "boleh", "lanjut", "ok", etc.), you MUST call get_payment_info immediately.',
         'If the customer wants to cancel or change the order, respond naturally.',
         'Do NOT respond with just text — call get_payment_info for any confirmation.\n',
@@ -749,59 +817,159 @@ export class ConversationOrchestratorService {
           return `Ini contoh hasil sablon kami ya kak 📸\n\nSablon bisa di 1-4 sisi dus, biaya Rp 500/sisi. Kalau mau sablon, tinggal share desainnya ya kak 😊`;
         }
 
-        case 'create_order': {
-          const rawItems: {
-            type: string;
-            panjang: number;
-            lebar: number;
-            tinggi: number;
-            material?: string;
-            quantity: number;
-          }[] = args.items ?? [];
-          const sablonSides = args.sablon_sides ?? 0;
+        case 'add_to_cart': {
+          const boxType = (args.type ?? 'dus_baru') as BoxType;
+          const mat = (args.material ?? 'singlewall') as Material;
+          const p = Number(args.panjang);
+          const l = Number(args.lebar);
+          const t = Number(args.tinggi);
+          const qty = Number(args.quantity) || 1;
+          const sablonSides = args.sablon_sides ? Number(args.sablon_sides) : 0;
+
+          if (!p || !l || !t || p <= 0 || l <= 0 || t <= 0) {
+            return 'Ukuran harus lebih dari 0. Mohon sebutkan panjang, lebar, dan tinggi dalam cm.';
+          }
+
+          const pricePerPcs = calculatePrice(boxType, p, l, t, mat);
+          const totals = calculateTotal(pricePerPcs, qty, sablonSides);
+
+          const materialLabels: Record<string, string> = {
+            singlewall: 'Singlewall',
+            cflute: 'C-Flute',
+            doublewall: 'Doublewall',
+          };
+
+          const typeLabel = boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
+          const matLabel =
+            boxType === 'dus_pizza' ? '' : ` ${materialLabels[mat]}`;
+          const productName = `${typeLabel} ${p}x${l}x${t}${matLabel}`;
+
+          const cartItem: CartItem = {
+            type: boxType,
+            panjang: p,
+            lebar: l,
+            tinggi: t,
+            material: mat,
+            quantity: qty,
+            sablonSides,
+            unitPrice: totals.totalPerPcs,
+            productName,
+          };
+
+          const cart = await this.chatSession.addToCart(
+            customer.phoneNumber,
+            cartItem,
+          );
+
+          await this.conversations.update(conversation.id, {
+            stage: 'collecting_items',
+          });
+
+          let line = `${productName} x${qty} @ ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}`;
+          if (sablonSides > 0) {
+            line += ` (termasuk sablon ${sablonSides} sisi)`;
+          }
+
+          return [
+            `✅ Ditambahkan ke keranjang:`,
+            line,
+            '',
+            `🛒 Total item di keranjang: ${cart.length}`,
+            '',
+            'Ada lagi yang mau ditambahkan kak? 😊',
+          ].join('\n');
+        }
+
+        case 'view_cart': {
+          const cart = await this.chatSession.getCart(customer.phoneNumber);
+          if (cart.length === 0) {
+            return '🛒 Keranjang masih kosong. Mau pesan dus apa kak?';
+          }
+
+          const itemLines: string[] = [];
+          let grandTotal = 0;
+          for (let idx = 0; idx < cart.length; idx++) {
+            const item = cart[idx];
+            const lineTotal = item.unitPrice * item.quantity;
+            grandTotal += lineTotal;
+            let line = `${idx + 1}. ${item.productName} x${item.quantity} @ ${this.formatRupiah(item.unitPrice)} = ${this.formatRupiah(lineTotal)}`;
+            if (item.sablonSides > 0) {
+              line += `\n   (sablon ${item.sablonSides} sisi)`;
+            }
+            itemLines.push(line);
+          }
+
+          await this.conversations.update(conversation.id, {
+            stage: 'order_summary',
+          });
+
+          return [
+            '🛒 *Ringkasan Pesanan:*',
+            '',
+            ...itemLines,
+            '',
+            `*Total: ${this.formatRupiah(grandTotal)}*`,
+            '🚚 Gratis ongkir!',
+            '',
+            'Sudah benar semua kak? Mau lanjut order? 😊',
+          ].join('\n');
+        }
+
+        case 'remove_from_cart': {
+          const itemNum = Number(args.item_number);
+          const cart = await this.chatSession.getCart(customer.phoneNumber);
+
+          if (cart.length === 0) {
+            return '🛒 Keranjang sudah kosong.';
+          }
+          if (itemNum < 1 || itemNum > cart.length) {
+            return `Nomor item tidak valid. Pilih antara 1-${cart.length}.`;
+          }
+
+          const removed = cart[itemNum - 1];
+          const updatedCart = await this.chatSession.removeFromCart(
+            customer.phoneNumber,
+            itemNum - 1,
+          );
+
+          if (updatedCart.length === 0) {
+            await this.conversations.update(conversation.id, {
+              stage: 'pricing',
+            });
+            return `❌ *${removed.productName}* dihapus dari keranjang.\n\n🛒 Keranjang sekarang kosong. Mau pesan yang lain kak?`;
+          }
+
+          return `❌ *${removed.productName}* dihapus dari keranjang.\n\n🛒 Sisa ${updatedCart.length} item di keranjang. Mau lihat ringkasan atau tambah lagi?`;
+        }
+
+        case 'confirm_order': {
+          const cart = await this.chatSession.getCart(customer.phoneNumber);
+          if (cart.length === 0) {
+            return 'Keranjang kosong. Belum ada item untuk di-order.';
+          }
+
           const orderItems: any[] = [];
           const itemLines: string[] = [];
           let grandTotal = 0;
 
-          for (const item of rawItems) {
-            const boxType = (item.type ?? 'dus_baru') as BoxType;
-            const mat = (item.material ?? 'singlewall') as Material;
-            const p = Number(item.panjang);
-            const l = Number(item.lebar);
-            const t = Number(item.tinggi);
-            const qty = Number(item.quantity) || 1;
-
-            const pricePerPcs = calculatePrice(boxType, p, l, t, mat);
-            const totals = calculateTotal(pricePerPcs, qty, sablonSides);
-
-            const materialLabels: Record<string, string> = {
-              singlewall: 'Singlewall',
-              cflute: 'C-Flute',
-              doublewall: 'Doublewall',
-            };
-
-            const typeLabel =
-              boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
-            const matLabel =
-              boxType === 'dus_pizza' ? '' : ` ${materialLabels[mat]}`;
-            const productName = `${typeLabel} ${p}x${l}x${t}${matLabel}`;
+          for (const item of cart) {
+            const lineTotal = item.unitPrice * item.quantity;
+            grandTotal += lineTotal;
 
             orderItems.push({
-              quantity: qty,
-              unitPrice: totals.totalPerPcs,
-              productName,
-              boxType,
-              material: mat,
-              panjang: p,
-              lebar: l,
-              tinggi: t,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              productName: item.productName,
+              boxType: item.type,
+              material: item.material,
+              panjang: item.panjang,
+              lebar: item.lebar,
+              tinggi: item.tinggi,
             });
 
-            grandTotal += totals.grandTotal;
-
-            let line = `- ${productName} x${qty} @ ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}`;
-            if (sablonSides > 0) {
-              line += `\n  (sudah termasuk sablon ${sablonSides} sisi)`;
+            let line = `- ${item.productName} x${item.quantity} @ ${this.formatRupiah(item.unitPrice)} = ${this.formatRupiah(lineTotal)}`;
+            if (item.sablonSides > 0) {
+              line += `\n  (sudah termasuk sablon ${item.sablonSides} sisi)`;
             }
             itemLines.push(line);
           }
@@ -811,6 +979,9 @@ export class ConversationOrchestratorService {
             conversationId: conversation.id,
             items: orderItems,
           });
+
+          // Clear cart after order is created
+          await this.chatSession.clearCart(customer.phoneNumber);
 
           await this.conversations.update(conversation.id, {
             stage: 'order_confirm',

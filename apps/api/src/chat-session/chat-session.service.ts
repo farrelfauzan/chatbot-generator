@@ -13,7 +13,20 @@ export interface SessionData {
   lastActivity: string;
 }
 
+export interface CartItem {
+  type: string; // 'dus_baru' | 'dus_pizza'
+  panjang: number;
+  lebar: number;
+  tinggi: number;
+  material: string;
+  quantity: number;
+  sablonSides: number;
+  unitPrice: number;
+  productName: string;
+}
+
 const SESSION_PREFIX = 'chat:session:';
+const CART_PREFIX = 'cart:';
 
 @Injectable()
 export class ChatSessionService implements OnModuleInit {
@@ -34,13 +47,16 @@ export class ChatSessionService implements OnModuleInit {
       this.logger.log(`Cleared ${keys.length} stale chat sessions on startup`);
     }
 
-    // Also clear dedup and lock keys
+    // Also clear dedup, lock, and cart keys
     const dedupKeys = await this.redis.keys('dedup:*');
     const lockKeys = await this.redis.keys('lock:phone:*');
-    const allKeys = [...dedupKeys, ...lockKeys];
+    const cartKeys = await this.redis.keys(`${CART_PREFIX}*`);
+    const allKeys = [...dedupKeys, ...lockKeys, ...cartKeys];
     if (allKeys.length > 0) {
       await this.redis.del(...allKeys);
-      this.logger.log(`Cleared ${allKeys.length} dedup/lock keys on startup`);
+      this.logger.log(
+        `Cleared ${allKeys.length} dedup/lock/cart keys on startup`,
+      );
     }
   }
 
@@ -94,6 +110,48 @@ export class ChatSessionService implements OnModuleInit {
     const jobId = `expire-${phone}`;
     const job = await this.expiryQueue.getJob(jobId);
     if (job) await job.remove();
+  }
+
+  // ─── Cart methods ──────────────────────────────────
+
+  private cartKey(phone: string) {
+    return `${CART_PREFIX}${phone}`;
+  }
+
+  async getCart(phone: string): Promise<CartItem[]> {
+    const raw = await this.redis.get(this.cartKey(phone));
+    if (!raw) return [];
+    return JSON.parse(raw);
+  }
+
+  async addToCart(phone: string, item: CartItem): Promise<CartItem[]> {
+    const cart = await this.getCart(phone);
+    cart.push(item);
+    await this.redis.set(
+      this.cartKey(phone),
+      JSON.stringify(cart),
+      'EX',
+      this.ttlSeconds,
+    );
+    return cart;
+  }
+
+  async removeFromCart(phone: string, index: number): Promise<CartItem[]> {
+    const cart = await this.getCart(phone);
+    if (index >= 0 && index < cart.length) {
+      cart.splice(index, 1);
+    }
+    await this.redis.set(
+      this.cartKey(phone),
+      JSON.stringify(cart),
+      'EX',
+      this.ttlSeconds,
+    );
+    return cart;
+  }
+
+  async clearCart(phone: string): Promise<void> {
+    await this.redis.del(this.cartKey(phone));
   }
 
   private async scheduleExpiry(

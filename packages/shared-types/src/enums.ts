@@ -7,6 +7,8 @@ export const CONVERSATION_STAGES = [
   "discovery",
   "recommendation",
   "pricing",
+  "collecting_items",
+  "order_summary",
   "order_confirm",
   "invoiced",
   "payment_pending",
