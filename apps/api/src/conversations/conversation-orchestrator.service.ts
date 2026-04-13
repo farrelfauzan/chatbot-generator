@@ -172,6 +172,37 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'update_cart_item',
+      description:
+        'Update an existing item in the cart (e.g. change quantity, add/change sablon, change material). Use this instead of adding a duplicate when customer wants to modify an item already in the cart.',
+      parameters: {
+        type: 'object',
+        properties: {
+          item_number: {
+            type: 'number',
+            description: 'The item number to update (1-based, as shown in cart).',
+          },
+          quantity: {
+            type: 'number',
+            description: 'New quantity (if changing).',
+          },
+          material: {
+            type: 'string',
+            enum: ['singlewall', 'cflute', 'doublewall'],
+            description: 'New material (if changing).',
+          },
+          sablon_sides: {
+            type: 'number',
+            description: 'Number of sablon sides (0-4). Set to 0 to remove sablon.',
+          },
+        },
+        required: ['item_number'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'confirm_order',
       description:
         'Confirm and place the order from all items currently in the cart. ONLY call this when the customer explicitly confirms they want to proceed with the order after seeing the order summary. This creates the actual order.',
@@ -857,6 +888,90 @@ export class ConversationOrchestratorService {
           }
 
           return `❌ *${removed.productName}* dihapus dari keranjang.\n\n🛒 Sisa ${updatedCart.length} item di keranjang. Mau lihat ringkasan atau tambah lagi?`;
+        }
+
+        case 'update_cart_item': {
+          const itemNum = Number(args.item_number);
+          const cart = await this.chatSession.getCart(customer.phoneNumber);
+
+          if (cart.length === 0) {
+            return '🛒 Keranjang masih kosong.';
+          }
+          if (itemNum < 1 || itemNum > cart.length) {
+            return `Nomor item tidak valid. Pilih antara 1-${cart.length}.`;
+          }
+
+          const idx = itemNum - 1;
+          const existing = cart[idx];
+
+          // Determine updated values
+          const newQty =
+            args.quantity !== undefined
+              ? Number(args.quantity)
+              : existing.quantity;
+          const newMat = (args.material ?? existing.material) as Material;
+          const newSablon =
+            args.sablon_sides !== undefined
+              ? Number(args.sablon_sides)
+              : existing.sablonSides;
+
+          // Recalculate price with updated params
+          const boxType = existing.type as BoxType;
+          const pricePerPcs = calculatePrice(
+            boxType,
+            existing.panjang,
+            existing.lebar,
+            existing.tinggi,
+            newMat,
+          );
+          const totals = calculateTotal(pricePerPcs, newQty, newSablon);
+
+          const materialLabels: Record<string, string> = {
+            singlewall: 'Singlewall',
+            cflute: 'C-Flute',
+            doublewall: 'Doublewall',
+          };
+          const typeLabel =
+            boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
+          const matLabel =
+            boxType === 'dus_pizza' ? '' : ` ${materialLabels[newMat]}`;
+          const productName = `${typeLabel} ${existing.panjang}x${existing.lebar}x${existing.tinggi}${matLabel}`;
+
+          await this.chatSession.updateCartItem(customer.phoneNumber, idx, {
+            material: newMat,
+            quantity: newQty,
+            sablonSides: newSablon,
+            unitPrice: totals.totalPerPcs,
+            productName,
+          });
+
+          const lineTotal = totals.totalPerPcs * newQty;
+          let line = `${productName} x${newQty} @ ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(lineTotal)}`;
+          if (newSablon > 0) {
+            line += ` (termasuk sablon ${newSablon} sisi)`;
+          }
+
+          const changes: string[] = [];
+          if (args.sablon_sides !== undefined && newSablon !== existing.sablonSides) {
+            changes.push(
+              newSablon > 0
+                ? `sablon ${newSablon} sisi ditambahkan`
+                : 'sablon dihapus',
+            );
+          }
+          if (args.material && newMat !== existing.material) {
+            changes.push(`material diubah ke ${materialLabels[newMat]}`);
+          }
+          if (args.quantity !== undefined && newQty !== existing.quantity) {
+            changes.push(`jumlah diubah ke ${newQty} pcs`);
+          }
+
+          return [
+            `✏️ Item #${itemNum} diperbarui${changes.length > 0 ? ' (' + changes.join(', ') + ')' : ''}:`,
+            line,
+            '',
+            'Ada lagi yang mau diubah atau ditambahkan kak? 😊',
+          ].join('\n');
         }
 
         case 'confirm_order': {
