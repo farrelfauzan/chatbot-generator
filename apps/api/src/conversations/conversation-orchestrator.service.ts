@@ -656,7 +656,8 @@ export class ConversationOrchestratorService {
             if (quantity) {
               const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
               let result = [
-                `🍕 *Dus Pizza ${p}x${l}x${t} cm*`,
+                `🍕 *Dus Pizza*`,
+                `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
                 `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
               ];
               if (sablonSides > 0) {
@@ -677,7 +678,8 @@ export class ConversationOrchestratorService {
             }
 
             return [
-              `🍕 *Dus Pizza ${p}x${l}x${t} cm*`,
+              `🍕 *Dus Pizza*`,
+              `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
               `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
               '',
               '🚚 Gratis ongkir!',
@@ -701,7 +703,11 @@ export class ConversationOrchestratorService {
               doublewall: 'Doublewall (tebal)',
             };
 
-            let lines = [`📦 *Dus Baru ${p}x${l}x${t} cm*`, ''];
+            let lines = [
+              `📦 *Dus Baru*`,
+              `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
+              '',
+            ];
             for (const { material: mat, price } of prices) {
               lines.push(
                 `• *${materialLabels[mat]}*: ${this.formatRupiah(price)}/pcs`,
@@ -742,7 +748,8 @@ export class ConversationOrchestratorService {
           if (quantity) {
             const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
             let result = [
-              `📦 *Dus Baru ${p}x${l}x${t} cm — ${materialLabels[material]}*`,
+              `📦 *Dus Baru — ${materialLabels[material]}*`,
+              `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
               `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
             ];
             if (sablonSides > 0) {
@@ -763,7 +770,8 @@ export class ConversationOrchestratorService {
           }
 
           return [
-            `📦 *Dus Baru ${p}x${l}x${t} cm — ${materialLabels[material]}*`,
+            `📦 *Dus Baru — ${materialLabels[material]}*`,
+            `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
             `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
             '',
             '🚚 Gratis ongkir!',
@@ -837,7 +845,7 @@ export class ConversationOrchestratorService {
           const typeLabel = boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
           const matLabel =
             boxType === 'dus_pizza' ? '' : ` ${materialLabels[mat]}`;
-          const productName = `${typeLabel} ${p}x${l}x${t}${matLabel}`;
+          const productName = `${typeLabel} (P:${p} × L:${l} × T:${t} cm)${matLabel}`;
 
           const cartItem: CartItem = {
             type: boxType,
@@ -981,7 +989,7 @@ export class ConversationOrchestratorService {
           const typeLabel = boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
           const matLabel =
             boxType === 'dus_pizza' ? '' : ` ${materialLabels[newMat]}`;
-          const productName = `${typeLabel} ${existing.panjang}x${existing.lebar}x${existing.tinggi}${matLabel}`;
+          const productName = `${typeLabel} (P:${existing.panjang} × L:${existing.lebar} × T:${existing.tinggi} cm)${matLabel}`;
 
           await this.chatSession.updateCartItem(customer.phoneNumber, idx, {
             material: newMat,
