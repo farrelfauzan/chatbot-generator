@@ -24,6 +24,15 @@ export class ConversationRepository implements IConversationRepository {
     }) as any;
   }
 
+  async findLatestByCustomerId(
+    customerId: string,
+  ): Promise<ConversationResponse | null> {
+    return this.prisma.client.conversation.findFirst({
+      where: { customerId },
+      orderBy: { updatedAt: 'desc' },
+    }) as any;
+  }
+
   async create(customerId: string): Promise<ConversationResponse> {
     return this.prisma.client.conversation.create({
       data: { customerId, status: 'active', stage: 'greeting' },

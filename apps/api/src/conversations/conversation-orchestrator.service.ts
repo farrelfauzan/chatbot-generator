@@ -180,7 +180,8 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
         properties: {
           item_number: {
             type: 'number',
-            description: 'The item number to update (1-based, as shown in cart).',
+            description:
+              'The item number to update (1-based, as shown in cart).',
           },
           quantity: {
             type: 'number',
@@ -193,7 +194,8 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
           },
           sablon_sides: {
             type: 'number',
-            description: 'Number of sablon sides (0-4). Set to 0 to remove sablon.',
+            description:
+              'Number of sablon sides (0-4). Set to 0 to remove sablon.',
           },
         },
         required: ['item_number'],
@@ -206,6 +208,15 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
       name: 'confirm_order',
       description:
         'Confirm and place the order from all items currently in the cart. ONLY call this when the customer explicitly confirms they want to proceed with the order after seeing the order summary. This creates the actual order.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancel_order',
+      description:
+        'Cancel the current order or clear the cart. Use when customer explicitly says they want to cancel (e.g. "batal", "cancel", "ga jadi", "nggak jadi"). This clears the cart and closes the conversation.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -294,6 +305,7 @@ export class ConversationOrchestratorService {
 
     // 2. Resolve conversation via session
     let conversation: any;
+    let priorConversationId: string | null = null;
     const existingSession = await this.chatSession.getSession(payload.phone);
 
     if (existingSession) {
@@ -302,12 +314,22 @@ export class ConversationOrchestratorService {
         existingSession.conversationId,
       );
       if (!conversation || conversation.status !== 'active') {
-        // Session stale — create new
+        // Session stale — only carry context if it expired due to idle
+        if (conversation?.closeReason === 'session_expired') {
+          priorConversationId = existingSession.conversationId;
+        }
         conversation = await this.conversations.create(customer.id);
       }
       await this.chatSession.refreshSession(payload.phone);
     } else {
-      // No session — create new conversation + session
+      // No session — look up the most recent conversation for context continuity
+      // Only carry context if the previous session expired due to idle (not payment, cancellation, etc.)
+      const lastConvo = await this.conversations.findLatestByCustomerId(
+        customer.id,
+      );
+      if (lastConvo && lastConvo.closeReason === 'session_expired') {
+        priorConversationId = lastConvo.id;
+      }
       conversation = await this.conversations.create(customer.id);
     }
 
@@ -369,6 +391,31 @@ export class ConversationOrchestratorService {
         content: systemPrompt + customerContext,
       },
     ];
+
+    // Include prior conversation history for context continuity (when session expired)
+    if (priorConversationId) {
+      const priorHistory =
+        await this.messages.findByConversationId(priorConversationId);
+      const priorMessages = priorHistory.slice(-20);
+      if (priorMessages.length > 0) {
+        chatMessages.push({
+          role: 'system',
+          content:
+            '--- PREVIOUS CONVERSATION (session expired due to inactivity, customer is back) ---\nThe following is the chat history from the previous session. Use it to maintain context. Do NOT greet again — acknowledge that the customer is back and continue naturally.',
+        });
+        for (const msg of priorMessages) {
+          chatMessages.push({
+            role: msg.direction === 'inbound' ? 'user' : 'assistant',
+            content: msg.content,
+          });
+        }
+        chatMessages.push({
+          role: 'system',
+          content:
+            '--- END OF PREVIOUS CONVERSATION ---\nThe customer has returned. Continue from where you left off. Do NOT repeat the greeting or send catalog images again.',
+        });
+      }
+    }
 
     // Include last 20 messages for context
     const recentHistory = history.slice(-20);
@@ -931,8 +978,7 @@ export class ConversationOrchestratorService {
             cflute: 'C-Flute',
             doublewall: 'Doublewall',
           };
-          const typeLabel =
-            boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
+          const typeLabel = boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
           const matLabel =
             boxType === 'dus_pizza' ? '' : ` ${materialLabels[newMat]}`;
           const productName = `${typeLabel} ${existing.panjang}x${existing.lebar}x${existing.tinggi}${matLabel}`;
@@ -952,7 +998,10 @@ export class ConversationOrchestratorService {
           }
 
           const changes: string[] = [];
-          if (args.sablon_sides !== undefined && newSablon !== existing.sablonSides) {
+          if (
+            args.sablon_sides !== undefined &&
+            newSablon !== existing.sablonSides
+          ) {
             changes.push(
               newSablon > 0
                 ? `sablon ${newSablon} sisi ditambahkan`
@@ -1029,6 +1078,33 @@ export class ConversationOrchestratorService {
             '🚚 Gratis ongkir!',
             '',
             'Lanjut ke pembayaran? 😊',
+          ].join('\n');
+        }
+
+        case 'cancel_order': {
+          // Clear cart
+          await this.chatSession.clearCart(customer.phoneNumber);
+
+          // Cancel the latest pending order if any
+          const latestOrder = await this.orders.findLatestByCustomerId(
+            customer.id,
+          );
+          if (latestOrder && latestOrder.status === 'draft') {
+            await this.orders.updateStatus(latestOrder.id, 'cancelled');
+          }
+
+          // Close conversation and session
+          await this.conversations.update(conversation.id, {
+            status: 'closed',
+            closeReason: 'user_cancelled',
+          });
+          await this.chatSession.deleteSession(customer.phoneNumber);
+
+          return [
+            '❌ *Pesanan dibatalkan*',
+            '',
+            'Keranjang sudah dikosongkan.',
+            'Kalau mau pesan lagi nanti, tinggal chat aja ya kak! 😊',
           ].join('\n');
         }
 

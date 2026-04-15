@@ -11,6 +11,9 @@ export interface IConversationRepository {
   findActiveByCustomerId(
     customerId: string,
   ): Promise<ConversationResponse | null>;
+  findLatestByCustomerId(
+    customerId: string,
+  ): Promise<ConversationResponse | null>;
   create(customerId: string): Promise<ConversationResponse>;
   update(
     id: string,

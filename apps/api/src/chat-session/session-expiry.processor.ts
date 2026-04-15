@@ -29,7 +29,7 @@ export class SessionExpiryProcessor extends WorkerHost {
       await this.prisma.client.conversation.update({
         where: { id: conversationId },
         data: {
-          status: 'completed',
+          status: 'closed',
           closedAt: new Date(),
           closeReason: 'session_expired',
         },

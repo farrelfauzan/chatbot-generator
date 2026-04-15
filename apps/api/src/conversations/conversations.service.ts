@@ -36,6 +36,10 @@ export class ConversationsService {
     return this.conversationRepo.create(customerId);
   }
 
+  async findLatestByCustomerId(customerId: string) {
+    return this.conversationRepo.findLatestByCustomerId(customerId);
+  }
+
   async update(id: string, data: UpdateConversationInput) {
     return this.conversationRepo.update(id, data);
   }

@@ -146,10 +146,20 @@ export class DokuWebhookController {
         );
       }
 
-      // End the chat session — payment flow is complete
+      // End the chat session and close conversation — payment flow is complete
       await this.chatSession.deleteSession(order.customer.phoneNumber);
+      if (order.conversationId) {
+        await this.prisma.client.conversation.update({
+          where: { id: order.conversationId },
+          data: {
+            status: 'closed',
+            closedAt: new Date(),
+            closeReason: 'payment_completed',
+          },
+        });
+      }
       this.logger.log(
-        `Session ended for ${order.customer.phoneNumber} after payment`,
+        `Session ended and conversation closed for ${order.customer.phoneNumber} after payment`,
       );
     } else if (txStatus === 'FAILED') {
       await this.prisma.client.order.update({

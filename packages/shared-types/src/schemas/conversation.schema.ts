@@ -9,6 +9,7 @@ export const conversationResponseSchema = z.object({
   lastInboundAt: z.coerce.date().nullable(),
   lastOutboundAt: z.coerce.date().nullable(),
   assignedAdminId: z.string().nullable(),
+  closeReason: z.string().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -26,6 +27,7 @@ export const updateConversationSchema = z.object({
   status: conversationStatusSchema.optional(),
   stage: conversationStageSchema.optional(),
   assignedAdminId: z.string().nullable().optional(),
+  closeReason: z.string().nullable().optional(),
 });
 
 export type UpdateConversationInput = z.infer<typeof updateConversationSchema>;
