@@ -44,7 +44,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
             type: 'string',
             enum: ['dus_baru', 'dus_pizza'],
             description:
-              'Box type: "dus_baru" for regular RSC boxes, "dus_pizza" for die-cut pizza boxes.',
+              'Box type: "dus_baru" for Dus Indomie (regular RSC boxes), "dus_pizza" for die-cut pizza boxes.',
           },
           panjang: {
             type: 'number',
@@ -216,7 +216,7 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'cancel_order',
       description:
-        'Cancel the current order or clear the cart. Use when customer explicitly says they want to cancel (e.g. "batal", "cancel", "ga jadi", "nggak jadi"). This clears the cart and closes the conversation.',
+        'Cancel the current order or clear the cart. Use when customer explicitly says they want to cancel (e.g. "batal", "cancel", "ga jadi", "nggak jadi"). This clears the cart and closes the conversation. After calling this, relay the tool result as-is. Do NOT add a new greeting or re-introduce yourself — the conversation is finished.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -277,11 +277,8 @@ export class ConversationOrchestratorService {
     private readonly catalogImages: CatalogImagesService,
     private readonly faq: FaqService,
     private readonly orders: OrdersService,
-    private readonly invoices: InvoicesService,
-    private readonly payments: PaymentsService,
     private readonly gowa: GowaService,
     private readonly chatSession: ChatSessionService,
-    private readonly settings: SettingsService,
     private readonly doku: DokuService,
     private readonly promptTemplates: PromptTemplateService,
   ) {}
@@ -722,56 +719,9 @@ export class ConversationOrchestratorService {
             ].join('\n');
           }
 
-          // dus_baru — show all material options if no specific material requested
-          const showAllMaterials = !args.material;
+          // dus_baru — default to singlewall if no specific material requested
 
-          if (showAllMaterials) {
-            const prices = MATERIALS_DUS_BARU.map((mat) => ({
-              material: mat,
-              price: calculatePrice('dus_baru', p, l, t, mat),
-            }));
-
-            const materialLabels: Record<string, string> = {
-              singlewall: 'Singlewall (tipis)',
-              cflute: 'C-Flute (sedang)',
-              doublewall: 'Doublewall (tebal)',
-            };
-
-            let lines = [
-              `📦 *Dus Baru*`,
-              `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
-              '',
-            ];
-            for (const { material: mat, price } of prices) {
-              lines.push(
-                `• *${materialLabels[mat]}*: ${this.formatRupiah(price)}/pcs`,
-              );
-            }
-
-            if (quantity) {
-              lines.push('', `Untuk *${quantity} pcs*:`);
-              for (const { material: mat, price } of prices) {
-                const totals = calculateTotal(price, quantity, sablonSides);
-                let line = `• ${materialLabels[mat]}: ${this.formatRupiah(totals.grandTotal)}`;
-                if (sablonSides > 0) {
-                  line += ` (termasuk sablon ${sablonSides} sisi)`;
-                }
-                lines.push(line);
-              }
-            }
-
-            lines.push('', '🚚 Gratis ongkir!');
-            if (!quantity) {
-              lines.push(
-                '',
-                'Pilih material mana dan mau pesan berapa pcs kak? 😊',
-              );
-            }
-
-            return lines.join('\n');
-          }
-
-          // Specific material
+          // Specific material (defaults to singlewall)
           const pricePerPcs = calculatePrice(type, p, l, t, material);
           const materialLabels: Record<string, string> = {
             singlewall: 'Singlewall',
@@ -782,7 +732,7 @@ export class ConversationOrchestratorService {
           if (quantity) {
             const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
             let result = [
-              `📦 *Dus Baru — ${materialLabels[material]}*`,
+              `📦 *Dus Indomie — ${materialLabels[material]}*`,
               `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
               `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
             ];
@@ -804,7 +754,7 @@ export class ConversationOrchestratorService {
           }
 
           return [
-            `📦 *Dus Baru — ${materialLabels[material]}*`,
+            `📦 *Dus Indomie — ${materialLabels[material]}*`,
             `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
             `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
             '',
@@ -831,7 +781,7 @@ export class ConversationOrchestratorService {
           });
 
           const customerName = customer.name || 'kakak';
-          return `Halo, kak ${customerName} 👋 kami supplier dus/kardus custom di Kapuk, Jakarta Barat 📍\n\nKami bisa bikin dus *custom ukuran apa aja*! Tinggal sebutkan ukuran (PxLxT) dan jenis dusnya (Dus Baru / Dus Pizza), nanti kami hitungkan harganya 😊\n\n🚚 Gratis ongkir!`;
+          return `Halo, kak ${customerName} 👋 kami supplier dus/kardus custom di Kapuk, Jakarta Barat 📍\n\nKami punya 2 jenis dus:\n1. *Dus Indomie* — kotak biasa (RSC)\n2. *Dus Pizza* — kotak die-cut\n\nBisa custom ukuran apa aja! 🚚 Gratis ongkir!\n\nAda yang bisa dibantu kak? 😊`;
         }
 
         case 'send_sablon_samples': {
@@ -876,7 +826,8 @@ export class ConversationOrchestratorService {
             doublewall: 'Doublewall',
           };
 
-          const typeLabel = boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
+          const typeLabel =
+            boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Indomie';
           const matLabel =
             boxType === 'dus_pizza' ? '' : ` ${materialLabels[mat]}`;
           const productName = `${typeLabel} (P:${p} × L:${l} × T:${t} cm)${matLabel}`;
@@ -1020,7 +971,8 @@ export class ConversationOrchestratorService {
             cflute: 'C-Flute',
             doublewall: 'Doublewall',
           };
-          const typeLabel = boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Baru';
+          const typeLabel =
+            boxType === 'dus_pizza' ? 'Dus Pizza' : 'Dus Indomie';
           const matLabel =
             boxType === 'dus_pizza' ? '' : ` ${materialLabels[newMat]}`;
           const productName = `${typeLabel} (P:${existing.panjang} × L:${existing.lebar} × T:${existing.tinggi} cm)${matLabel}`;
