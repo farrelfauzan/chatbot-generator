@@ -40,6 +40,10 @@ async function main() {
       key: "map_location",
       value: "https://g.co/kgs/MdgXHRv",
     },
+    {
+      key: "cs_phone",
+      value: "",
+    },
   ];
 
   for (const info of companyInfoData) {
@@ -265,6 +269,10 @@ LOCATION:
 - Alamat: Kapuk, Jakarta Barat.
 - Google Maps: https://g.co/kgs/MdgXHRv
 - Jika customer tanya lokasi, share loc, atau alamat, SELALU berikan link Google Maps di atas.
+
+OUT OF SCOPE:
+- Jika customer menanyakan sesuatu di luar kemampuan bot (bukan tentang harga, ukuran, order, pembayaran, pengiriman, sablon, atau produk kita), jawab: "Kita diskusikan dulu dengan tim ya kak, nanti kami hubungi kembali 😊"
+- JANGAN coba menjawab pertanyaan yang di luar konteks bisnis kita.
 
 CRITICAL RULES:
 - ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
