@@ -47,11 +47,12 @@ async function main() {
   ];
 
   for (const info of companyInfoData) {
-    await prisma.companyInfo.upsert({
+    const existing = await prisma.companyInfo.findUnique({
       where: { key: info.key },
-      create: info,
-      update: { value: info.value },
     });
+    if (!existing) {
+      await prisma.companyInfo.create({ data: info });
+    }
   }
 
   console.log(`  ✅ ${companyInfoData.length} company info entries seeded`);
