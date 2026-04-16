@@ -49,17 +49,9 @@ export class SessionExpiryProcessor extends WorkerHost {
         },
       });
 
-      // Send goodbye message to customer
-      const message = [
-        'Halo kak, sepertinya sudah lama tidak ada balasan nih 😊',
-        '',
-        'Sesi chat ini sudah kami tutup ya. Kalau nanti butuh bantuan lagi, tinggal kirim pesan aja kapan saja!',
-        '',
-        'Terima kasih kak! 🙏',
-      ].join('\n');
-
-      await this.gowa.sendText(phone, message);
-      this.logger.log(`Session expiry message sent to ${phone}`);
+      // Silent close — no goodbye message sent to customer.
+      // When user chats again, previous context will be restored.
+      this.logger.log(`Session silently closed for ${phone}`);
     } catch (err: any) {
       this.logger.error(
         `Failed to close conversation ${conversationId}: ${err.message}`,
