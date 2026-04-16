@@ -86,7 +86,7 @@ model Message {
 model CardboardProduct {
   id           String   @id @default(cuid())
   sku          String   @unique
-  name         String                           // e.g. "Dus Baru 12x12x5 Singlewall"
+  name         String                           // e.g. "Dus Indomie 12x12x5 Singlewall"
   type         String                           // "dus_baru" | "dus_pizza"
   panjang      Float                            // cm
   lebar        Float                            // cm
