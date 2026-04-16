@@ -62,6 +62,7 @@ model Conversation {
   assignedAdminId String?
   closedAt        DateTime?
   closeReason     String?
+  cartSnapshot    Json?                           // Cart items saved on session expiry
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   customer        Customer  @relation(fields: [customerId], references: [id])

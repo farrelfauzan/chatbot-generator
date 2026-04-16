@@ -394,6 +394,25 @@ export class ConversationOrchestratorService {
 
     // Include prior conversation history for context continuity (when session expired)
     if (priorConversationId) {
+      // Restore cart from prior conversation snapshot
+      const priorConvo = (await this.conversations.findById(
+        priorConversationId,
+      )) as any;
+      if (priorConvo?.cartSnapshot) {
+        const cartItems = priorConvo.cartSnapshot as any[];
+        for (const item of cartItems) {
+          await this.chatSession.addToCart(payload.phone, item);
+        }
+        // Set stage to collecting_items since there are items in cart
+        await this.conversations.update(conversation.id, {
+          stage: 'collecting_items',
+        });
+        conversation.stage = 'collecting_items';
+        this.logger.log(
+          `Restored ${cartItems.length} cart items from prior conversation ${priorConversationId}`,
+        );
+      }
+
       const priorHistory =
         await this.messages.findByConversationId(priorConversationId);
       const priorMessages = priorHistory.slice(-20);
@@ -413,6 +432,21 @@ export class ConversationOrchestratorService {
           role: 'system',
           content:
             '--- END OF PREVIOUS CONVERSATION ---\nThe customer has returned. Continue from where you left off. Do NOT repeat the greeting or send catalog images again.',
+        });
+      }
+
+      // Tell the LLM about restored cart
+      if (priorConvo?.cartSnapshot) {
+        const cartItems = priorConvo.cartSnapshot as any[];
+        const cartSummary = cartItems
+          .map(
+            (item: any, i: number) =>
+              `${i + 1}. ${item.productName} x${item.quantity} - Rp${item.unitPrice?.toLocaleString('id-ID')}/pcs`,
+          )
+          .join('\n');
+        chatMessages.push({
+          role: 'system',
+          content: `⚠️ CART RESTORED FROM PREVIOUS SESSION:\nThe customer's cart has been restored. Current items:\n${cartSummary}\nAcknowledge the cart is still saved and ask if they want to continue or make changes.`,
         });
       }
     }
