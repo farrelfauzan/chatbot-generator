@@ -43,7 +43,9 @@ export class SessionExpiryProcessor extends WorkerHost {
           status: 'closed',
           closedAt: new Date(),
           closeReason: 'session_expired',
-          ...(cartSnapshot ? { cartSnapshot } : {}),
+          ...(cartSnapshot
+            ? { cartSnapshot: JSON.parse(JSON.stringify(cartSnapshot)) }
+            : {}),
         },
       });
 
