@@ -259,7 +259,7 @@ MINIMUM ORDER:
 
 DELIVERY:
 - JABODETABEK: estimasi 1-3 hari kerja, GRATIS ongkir.
-- Luar JABODETABEK: menggunakan jasa cargo (biaya cargo ditanggung pembeli).
+- Luar JABODETABEK: menggunakan jasa cargo.
 
 CRITICAL RULES:
 - ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
