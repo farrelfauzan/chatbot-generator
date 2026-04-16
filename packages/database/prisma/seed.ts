@@ -382,7 +382,14 @@ SABLON INFO:
     await prisma.promptTemplate.upsert({
       where: { slug: template.slug },
       create: template,
-      update: {},
+      update: {
+        name: template.name,
+        description: template.description,
+        category: template.category,
+        content: template.content,
+        variables: template.variables,
+        isActive: template.isActive,
+      },
     });
   }
 
