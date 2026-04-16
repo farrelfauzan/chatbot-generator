@@ -99,7 +99,7 @@ async function main() {
     {
       question: "Dimana lokasi toko?",
       answer:
-        "Lokasi kami di Kapuk, Jakarta Barat. Bisa datang langsung untuk ambil sendiri (pickup).",
+        "Lokasi kami di Kapuk, Jakarta Barat. Bisa datang langsung untuk ambil sendiri (pickup). Google Maps: https://g.co/kgs/MdgXHRv",
       category: "location",
     },
     {
@@ -259,7 +259,12 @@ MINIMUM ORDER:
 
 DELIVERY:
 - JABODETABEK: estimasi 1-3 hari kerja, GRATIS ongkir.
-- Luar JABODETABEK: menggunakan jasa cargo.
+- Luar JABODETABEK: menggunakan jasa cargo (biaya cargo ditanggung pembeli).
+
+LOCATION:
+- Alamat: Kapuk, Jakarta Barat.
+- Google Maps: https://g.co/kgs/MdgXHRv
+- Jika customer tanya lokasi, share loc, atau alamat, SELALU berikan link Google Maps di atas.
 
 CRITICAL RULES:
 - ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
