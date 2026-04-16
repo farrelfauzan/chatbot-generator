@@ -1,7 +1,7 @@
 /**
  * Formula-based pricing for cardboard boxes.
  *
- * Dus Baru (regular RSC box):
+ * Dus Indomie (regular RSC box):
  *   Surface Area = 2 × (P×L + P×T + L×T)
  *   Price = round(SA × material_rate)
  *
@@ -41,6 +41,14 @@ export function calculatePizzaSheet(
   return { width, height, area: width * height };
 }
 
+/**
+ * Round up to the nearest 100.
+ * e.g. 2573 → 2600, 1400 → 1400
+ */
+function ceilTo100(n: number): number {
+  return Math.ceil(n / 100) * 100;
+}
+
 export function calculatePrice(
   type: BoxType,
   p: number,
@@ -50,13 +58,13 @@ export function calculatePrice(
 ): number {
   if (type === 'dus_pizza') {
     const sheet = calculatePizzaSheet(p, l, t);
-    return Math.round(sheet.area * RATE_DUS_PIZZA);
+    return ceilTo100(sheet.area * RATE_DUS_PIZZA);
   }
 
   // dus_baru
   const sa = calculateSurfaceArea(p, l, t);
   const rate = RATES_DUS_BARU[material] ?? RATES_DUS_BARU.singlewall;
-  return Math.round(sa * rate);
+  return ceilTo100(sa * rate);
 }
 
 export function calculateTotal(
