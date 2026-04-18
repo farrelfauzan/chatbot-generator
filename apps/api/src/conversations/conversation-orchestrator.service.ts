@@ -15,6 +15,7 @@ import {
 } from '../chat-session/chat-session.service';
 import { SettingsService } from '../settings/settings.service';
 import { DokuService } from '../doku/doku.service';
+import type { DokuInvoiceResult } from '../doku/doku.service';
 import { PromptTemplateService } from '../prompt-templates/prompt-template.service';
 import { appConfig } from '../app.config';
 import {
@@ -361,17 +362,17 @@ export class ConversationOrchestratorService {
       stageHint = [
         '\n⚠️ CONVERSATION STAGE: order_summary',
         'The customer has been shown the order summary and is deciding whether to confirm.',
-        'If the customer confirms (e.g. "ya", "ok", "benar", "lanjut", "order"), call confirm_order immediately.',
-        'If the customer wants to change items, help them modify the cart (add_to_cart / remove_from_cart).',
-        'If the customer wants to cancel, acknowledge and clear the cart.\n',
+        'CRITICAL: If the customer says ANYTHING affirmative (e.g. "ya", "ok", "oke", "benar", "betul", "lanjut", "order", "iya", "yoi", "yup", "sip", "gas", "jadi", "deal", "siap", "boleh"), you MUST call confirm_order IMMEDIATELY. Do NOT just reply with text — you MUST use the tool.',
+        'If the customer wants to change items, help them modify the cart (add_to_cart / remove_from_cart / update_cart_item).',
+        'If the customer wants to cancel, use cancel_order.\n',
       ].join('\n');
     } else if (conversation.stage === 'order_confirm') {
       stageHint = [
         '\n⚠️ CONVERSATION STAGE: order_confirm',
-        'The customer has a confirmed order waiting for payment.',
-        'If the customer agrees, confirms, or says anything affirmative (e.g. "ya", "boleh", "lanjut", "ok", etc.), you MUST call get_payment_info immediately.',
+        'The customer has a confirmed order. A payment link was already sent (or attempted).',
+        'If the customer asks for the payment link again, or says "bayar", or asks how to pay, call get_payment_info to generate/resend the link.',
         'If the customer wants to cancel or change the order, respond naturally.',
-        'Do NOT respond with just text — call get_payment_info for any confirmation.\n',
+        'Do NOT ask "Lanjut ke pembayaran?" — the payment link was already provided.\n',
       ].join('\n');
     }
     const customerContext = `\nCUSTOMER INFO:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phoneNumber}\n${stageHint}`;
@@ -1072,6 +1073,39 @@ export class ConversationOrchestratorService {
           // Clear cart after order is created
           await this.chatSession.clearCart(customer.phoneNumber);
 
+          // Attempt to create DOKU payment link immediately
+          let paymentSection: string[] = [];
+          if (this.doku.isConfigured) {
+            const dokuResult: DokuInvoiceResult = await this.doku.createInvoice(
+              {
+                orderId: order.orderNumber,
+                amount: Number(order.totalAmount),
+                customerName: customer.name || 'Customer',
+                customerPhone: customer.phoneNumber,
+                description: `Pembayaran pesanan ${order.orderNumber}`,
+              },
+            );
+
+            if (dokuResult.ok) {
+              paymentSection = [
+                '',
+                '💳 *Pembayaran Online (DOKU)*',
+                'Klik link berikut untuk bayar:',
+                dokuResult.invoiceUrl,
+                '',
+                '_Bisa bayar via VA, QRIS, e-wallet, atau kartu kredit._',
+                '_Link berlaku 1 jam._',
+              ];
+            } else {
+              paymentSection = [
+                '',
+                dokuResult.error === 'TIMEOUT'
+                  ? 'Maaf kak, sistem pembayaran sedang lambat. Ketik "bayar" untuk coba lagi ya 🙏'
+                  : 'Maaf kak, link pembayaran belum bisa dibuat saat ini. Ketik "bayar" untuk coba lagi ya 🙏',
+              ];
+            }
+          }
+
           await this.conversations.update(conversation.id, {
             stage: 'order_confirm',
           });
@@ -1084,8 +1118,7 @@ export class ConversationOrchestratorService {
             '',
             `*Total: ${this.formatRupiah(Number(order.totalAmount))}*`,
             '🚚 Gratis ongkir!',
-            '',
-            'Lanjut ke pembayaran? 😊',
+            ...paymentSection,
           ].join('\n');
         }
 
@@ -1157,37 +1190,39 @@ export class ConversationOrchestratorService {
           );
 
           if (latestOrder && this.doku.isConfigured) {
-            try {
-              const dokuResult = await this.doku.createInvoice({
+            const dokuResult: DokuInvoiceResult = await this.doku.createInvoice(
+              {
                 orderId: latestOrder.orderNumber,
                 amount: Number(latestOrder.totalAmount),
                 customerName: customer.name || 'Customer',
                 customerPhone: customer.phoneNumber,
                 description: `Pembayaran pesanan ${latestOrder.orderNumber}`,
-              });
-              if (dokuResult) {
-                return [
-                  '💳 *Pembayaran Online (DOKU)*',
-                  `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
-                  '',
-                  'Klik link berikut untuk bayar:',
-                  dokuResult.invoiceUrl,
-                  '',
-                  '_Bisa bayar via VA, QRIS, e-wallet, atau kartu kredit._',
-                  '_Link berlaku 1 jam._',
-                ].join('\n');
-              }
-            } catch (err: any) {
-              this.logger.error(`DOKU createInvoice error: ${err.message}`);
+              },
+            );
+
+            if (dokuResult.ok) {
               return [
-                '💳 *Pembayaran*',
-                '',
-                `No. Pesanan: *${latestOrder.orderNumber}*`,
+                '💳 *Pembayaran Online (DOKU)*',
                 `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
                 '',
-                'Maaf kak, sistem pembayaran sedang gangguan. Mohon coba lagi beberapa saat ya 🙏',
+                'Klik link berikut untuk bayar:',
+                dokuResult.invoiceUrl,
+                '',
+                '_Bisa bayar via VA, QRIS, e-wallet, atau kartu kredit._',
+                '_Link berlaku 1 jam._',
               ].join('\n');
             }
+
+            return [
+              '💳 *Pembayaran*',
+              '',
+              `No. Pesanan: *${latestOrder.orderNumber}*`,
+              `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
+              '',
+              dokuResult.error === 'TIMEOUT'
+                ? 'Maaf kak, sistem pembayaran sedang lambat. Coba ketik "bayar" lagi beberapa saat ya 🙏'
+                : 'Maaf kak, sistem pembayaran sedang gangguan. Coba ketik "bayar" lagi beberapa saat ya 🙏',
+            ].join('\n');
           }
 
           if (this.doku.isConfigured) {

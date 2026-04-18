@@ -25,10 +25,10 @@ export class DokuService {
     customerPhone: string;
     description: string;
     expiryMinutes?: number;
-  }): Promise<{ invoiceUrl: string; paymentId: string } | null> {
+  }): Promise<DokuInvoiceResult> {
     if (!this.isConfigured) {
       this.logger.warn('DOKU not configured — skipping invoice creation');
-      return null;
+      return { ok: false, error: 'NOT_CONFIGURED' };
     }
 
     const requestTarget = '/checkout/v1/payment';
@@ -70,35 +70,68 @@ export class DokuService {
       `DOKU createInvoice: ${params.orderId}, amount=${params.amount}`,
     );
 
-    const res = await fetch(`${this.baseUrl}${requestTarget}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Client-Id': this.clientId,
-        'Request-Id': requestId,
-        'Request-Timestamp': timestamp,
-        Signature: signature,
+    const [fetchErr, res] = await this.safeFetch(
+      `${this.baseUrl}${requestTarget}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Client-Id': this.clientId,
+          'Request-Id': requestId,
+          'Request-Timestamp': timestamp,
+          Signature: signature,
+        },
+        body: bodyStr,
+        signal: AbortSignal.timeout(30_000),
       },
-      body: bodyStr,
-    });
+    );
+
+    if (fetchErr) {
+      const isTimeout =
+        fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
+      const code: DokuErrorCode = isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR';
+      this.logger.error(
+        `DOKU createInvoice ${code} for order ${params.orderId}: ${fetchErr.message}`,
+      );
+      return { ok: false, error: code };
+    }
 
     if (!res.ok) {
       const text = await res.text();
-      this.logger.error(`DOKU createInvoice failed ${res.status}: ${text}`);
-      return null;
+      this.logger.error(
+        `DOKU createInvoice failed for order ${params.orderId} — HTTP ${res.status}: ${text}`,
+      );
+      return { ok: false, error: 'HTTP_ERROR', httpStatus: res.status };
     }
 
-    const data = (await res.json()) as any;
+    const [parseErr, data] = await this.safeJson(res);
+
+    if (parseErr) {
+      this.logger.error(
+        `DOKU createInvoice returned invalid JSON for order ${params.orderId}`,
+      );
+      return { ok: false, error: 'INVALID_RESPONSE' };
+    }
 
     if (data.message?.[0] !== 'SUCCESS') {
+      const errorDetail = JSON.stringify(data.error_messages ?? data.message);
       this.logger.error(
-        `DOKU createInvoice error: ${JSON.stringify(data.error_messages ?? data.message)}`,
+        `DOKU createInvoice rejected for order ${params.orderId}: ${errorDetail}`,
       );
-      return null;
+      return { ok: false, error: 'REJECTED' };
+    }
+
+    const invoiceUrl = data.response?.payment?.url;
+    if (!invoiceUrl) {
+      this.logger.error(
+        `DOKU createInvoice returned SUCCESS but no payment URL for order ${params.orderId}`,
+      );
+      return { ok: false, error: 'MISSING_URL' };
     }
 
     return {
-      invoiceUrl: data.response?.payment?.url ?? '',
+      ok: true,
+      invoiceUrl,
       paymentId: data.response?.order?.invoice_number ?? params.orderId,
     };
   }
@@ -161,4 +194,36 @@ export class DokuService {
   private sha256Base64(data: string): string {
     return createHash('sha256').update(data, 'utf8').digest('base64');
   }
+
+  private async safeFetch(
+    url: string,
+    init: RequestInit,
+  ): Promise<[Error, null] | [null, Response]> {
+    try {
+      return [null, await fetch(url, init)];
+    } catch (err) {
+      return [err as Error, null];
+    }
+  }
+
+  private async safeJson(res: Response): Promise<[Error, null] | [null, any]> {
+    try {
+      return [null, await res.json()];
+    } catch (err) {
+      return [err as Error, null];
+    }
+  }
 }
+
+export type DokuErrorCode =
+  | 'NOT_CONFIGURED'
+  | 'TIMEOUT'
+  | 'NETWORK_ERROR'
+  | 'HTTP_ERROR'
+  | 'INVALID_RESPONSE'
+  | 'REJECTED'
+  | 'MISSING_URL';
+
+export type DokuInvoiceResult =
+  | { ok: true; invoiceUrl: string; paymentId: string }
+  | { ok: false; error: DokuErrorCode; httpStatus?: number };
