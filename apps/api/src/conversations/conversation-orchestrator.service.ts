@@ -268,6 +268,7 @@ export class ConversationOrchestratorService {
   private readonly openai = new OpenAI({
     apiKey: appConfig.llm.apiKey || 'missing-key',
     baseURL: appConfig.llm.baseUrl,
+    timeout: 60_000, // 60s hard timeout per request
   });
 
   constructor(
@@ -504,14 +505,27 @@ export class ConversationOrchestratorService {
     let nullCount = 0;
 
     for (let i = 0; i < maxIterations; i++) {
-      const completion = await this.openai.chat.completions.create({
-        model: appConfig.llm.model,
-        messages,
-        tools: TOOLS,
-        tool_choice: nullCount >= 2 ? 'required' : 'auto',
-        max_tokens: appConfig.llm.maxTokens,
-        temperature: appConfig.llm.temperature,
-      });
+      let completion: OpenAI.ChatCompletion;
+      try {
+        completion = await this.openai.chat.completions.create({
+          model: appConfig.llm.model,
+          messages,
+          tools: TOOLS,
+          tool_choice: nullCount >= 2 ? 'required' : 'auto',
+          max_tokens: appConfig.llm.maxTokens,
+          temperature: appConfig.llm.temperature,
+        });
+      } catch (err: any) {
+        this.logger.error(
+          `LLM request failed on iteration ${i}: ${err.message ?? err}`,
+        );
+        // If we already have a tool result, return it instead of crashing
+        if (lastToolResult) {
+          this.logger.warn('Returning lastToolResult after LLM timeout/error');
+          return lastToolResult;
+        }
+        throw err;
+      }
 
       const choice = completion.choices[0];
       const assistantMsg = choice.message;

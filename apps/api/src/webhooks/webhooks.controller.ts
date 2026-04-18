@@ -120,7 +120,7 @@ export class WebhooksController {
 
     // Per-phone concurrency lock — only one message processed at a time per phone
     const lockKey = `lock:phone:${phone}`;
-    const acquired = await this.redis.set(lockKey, '1', 'EX', 60, 'NX');
+    const acquired = await this.redis.set(lockKey, '1', 'EX', 120, 'NX');
     if (!acquired) {
       this.logger.warn(`Phone ${phone} already being processed, skipping`);
       return { status: 'ok', skipped: true, reason: 'concurrent' };

@@ -42,7 +42,7 @@ async function main() {
     },
     {
       key: "cs_phone",
-      value: "",
+      value: "62812345678",
     },
   ];
 
