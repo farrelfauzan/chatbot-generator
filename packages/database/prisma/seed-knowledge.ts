@@ -77,13 +77,13 @@ const KNOWLEDGE_CHUNKS = [
     sourceType: "bot_behavior",
     title: "Bot Behaviour: Box Types Available",
     content:
-      "Dua jenis dus tersedia: 1) Dus Indomie (RSC) — dus standar untuk pengiriman, berbentuk kotak biasa. 2) Dus Pizza (Die-Cut) — dus untuk makanan, berbentuk pipih dengan tutup terbuka.",
+      "Dua jenis dus tersedia: 1) Dus Indomie (RSC) — dus standar untuk pengiriman, berbentuk kotak biasa. Custom ukuran, bukan stok tetap. 2) Dus Pizza (Die-Cut) — bukan hanya untuk pizza, cocok juga untuk baju, pakaian, atau barang yang butuh kemasan flat/premium.",
   },
   {
     sourceType: "bot_behavior",
     title: "Bot Behaviour: Materials Available",
     content:
-      "Tiga pilihan material: 1) Singlewall — tipis, ringan, cocok untuk barang ringan. 2) C-Flute — ketebalan medium, paling populer, cocok untuk kebanyakan kebutuhan. 3) Doublewall — paling tebal dan kuat, cocok untuk barang berat.",
+      "Tiga pilihan material: 1) Singlewall — tipis, ringan, cocok untuk barang ringan (default material). 2) C-Flute — ketebalan medium, lebih kuat, cocok untuk barang sedang. 3) Doublewall — paling tebal dan kuat, cocok untuk barang berat >10kg.",
   },
   {
     sourceType: "bot_behavior",
@@ -99,39 +99,71 @@ const KNOWLEDGE_CHUNKS = [
   },
   {
     sourceType: "bot_behavior",
-    title: "Bot Behaviour: Payment Rules",
-    content:
-      "Pembayaran hanya melalui DOKU payment link. Link dikirim otomatis saat order dikonfirmasi (confirm_order). Jika customer minta link lagi, gunakan get_payment_info untuk mengirim ulang.",
-  },
-  {
-    sourceType: "bot_behavior",
-    title: "Bot Behaviour: Delivery Policy",
-    content:
-      "Pengiriman area Jabodetabek 2-3 hari kerja. Luar Jabodetabek 3-5 hari kerja. Ongkos kirim dihitung terpisah dan belum termasuk dalam harga dus. Bisa juga diambil langsung (COD).",
-  },
-  {
-    sourceType: "bot_behavior",
-    title: "Bot Behaviour: Location",
-    content:
-      "Workshop berlokasi di area Jabodetabek. Customer bisa datang langsung untuk mengambil pesanan (COD) atau memilih dikirim.",
-  },
-  {
-    sourceType: "bot_behavior",
-    title: "Bot Behaviour: Out of Scope",
-    content:
-      'Jika customer menanyakan sesuatu di luar kemampuan bot (bukan tentang harga, ukuran, order, pembayaran, pengiriman, sablon, atau produk kardus), jawab: "Kita diskusikan dulu dengan tim ya kak, nanti kami hubungi kembali 😊"',
-  },
-  {
-    sourceType: "bot_behavior",
-    title: "Bot Behaviour: Cancellation",
-    content:
-      "Customer bisa membatalkan order sebelum bayar dengan menggunakan cancel_order. Setelah pembayaran, customer perlu menghubungi admin untuk proses pembatalan.",
-  },
-  {
-    sourceType: "bot_behavior",
     title: "Bot Behaviour: Formatting",
     content:
       'Gunakan format WhatsApp: *bold* untuk penekanan, numbered list untuk opsi. Jaga reply tetap singkat (maksimal 1-3 paragraf). Format harga sebagai "Rp" dengan pemisah ribuan.',
+  },
+
+  // ─── Policy ───────────────────────────────────────
+  {
+    sourceType: "policy",
+    title: "Policy: Model Restriction",
+    content:
+      'Kami HANYA menyediakan 2 model: Dus Indomie (RSC) dan Dus Pizza (die-cut). Tidak bisa custom model/bentuk lain. Jika customer minta model lain (dus tutup atas, box sliding, hardbox, dll), jawab: "Mohon maaf kak, saat ini kami hanya menyediakan model Dus Indomie (RSC) dan Dus Pizza (die-cut). Belum bisa custom model lain ya kak 🙏"',
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Custom Size Only",
+    content:
+      "Kami membuat dus CUSTOM — ukuran apapun sesuai kebutuhan customer. TIDAK ada stok tetap atau ukuran katalog. Yang bisa di-custom hanya UKURAN, bukan model/bentuk.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Minimum Order",
+    content:
+      "Minimal order Rp 300.000. Jika total pesanan di bawah Rp 300.000, infokan ke customer. Jika menggunakan sablon, minimal order 200 pcs.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Payment",
+    content:
+      "Pembayaran HANYA melalui DOKU online payment link. TIDAK ada bank transfer, TIDAK ada transfer manual. Link dikirim otomatis setelah pesanan dikonfirmasi. Bisa bayar via QRIS, e-wallet, atau kartu kredit.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Delivery Jabodetabek",
+    content:
+      "Pengiriman area JABODETABEK (Jakarta, Bogor, Depok, Tangerang, Bekasi): estimasi 1-3 hari kerja, GRATIS ongkir.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Delivery Luar Jabodetabek",
+    content:
+      "Pengiriman luar JABODETABEK menggunakan jasa cargo. Biaya cargo ditanggung pembeli.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Location",
+    content:
+      "Alamat workshop: Kapuk, Jakarta Barat. Google Maps: https://g.co/kgs/MdgXHRv. Customer bisa datang langsung untuk ambil sendiri (pickup/COD).",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Sablon",
+    content:
+      "Sablon (cetak logo/tulisan di permukaan dus): Rp 500 per sisi, bisa 1-4 sisi. Minimal order sablon 200 pcs. Jangan tanya sablon berulang kali, cukup sebutkan sekali.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Cancellation",
+    content:
+      "Customer bisa membatalkan order sebelum bayar via cancel_order. Setelah pembayaran, customer harus menghubungi admin untuk proses pembatalan.",
+  },
+  {
+    sourceType: "policy",
+    title: "Policy: Out of Scope",
+    content:
+      'Jika customer menanyakan sesuatu di luar kemampuan bot (bukan tentang harga, ukuran, order, pembayaran, pengiriman, sablon, atau produk kardus), jawab: "Kita diskusikan dulu dengan tim ya kak, nanti kami hubungi kembali 😊". JANGAN coba menjawab pertanyaan di luar konteks bisnis.',
   },
 ];
 
