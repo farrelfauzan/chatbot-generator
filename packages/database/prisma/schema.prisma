@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 // ─── Core ────────────────────────────────────────────
@@ -27,17 +29,6 @@ model CompanyInfo {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model BankAccount {
-  id            String  @id @default(cuid())
-  bankName      String
-  accountNumber String
-  accountHolder String
-  isActive      Boolean @default(true)
-  isDefault     Boolean @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 }
 
 model Customer {
@@ -81,40 +72,7 @@ model Message {
   conversation     Conversation @relation(fields: [conversationId], references: [id])
 }
 
-// ─── Catalog (Cardboard Box) ─────────────────────────
-
-model CardboardProduct {
-  id           String   @id @default(cuid())
-  sku          String   @unique
-  name         String                           // e.g. "Dus Indomie 12x12x5 Singlewall"
-  type         String                           // "dus_baru" | "dus_pizza"
-  panjang      Float                            // cm
-  lebar        Float                            // cm
-  tinggi       Float                            // cm
-  surfaceArea  Float?                           // cm²
-  material     String                           // "singlewall" | "cflute" | "doublewall"
-  pricePerPcs  Decimal  @db.Decimal(12, 2)
-  stockQty     Int      @default(0)
-  isReadyStock Boolean  @default(false)
-  leadTimeDays Int?                             // production time for non-ready stock
-  imageUrl     String?
-  description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  orderItems   OrderItem[]
-
-  @@index([type])
-  @@index([material])
-}
-
-model SablonOption {
-  id           String  @id @default(cuid())
-  name         String                           // e.g. "Sablon 1 Sisi", "Sablon 2 Sisi"
-  sidesCount   Int
-  pricePerSide Decimal @db.Decimal(12, 2)       // 500
-  isActive     Boolean @default(true)
-}
+// ─── Catalog ─────────────────────────────────────────
 
 model CatalogImage {
   id          String   @id @default(cuid())
@@ -129,25 +87,11 @@ model CatalogImage {
 
 // ─── Commerce ────────────────────────────────────────
 
-model Quote {
-  id             String   @id @default(cuid())
-  customerId     String
-  conversationId String?
-  subtotal       Decimal  @db.Decimal(12, 2)
-  discountAmount Decimal  @default(0) @db.Decimal(12, 2)
-  shippingAmount Decimal  @default(0) @db.Decimal(12, 2)
-  taxAmount      Decimal  @default(0) @db.Decimal(12, 2)
-  totalAmount    Decimal  @db.Decimal(12, 2)
-  status         String   @default("draft")
-  createdAt      DateTime @default(now())
-}
-
 model Order {
   id                String      @id @default(cuid())
   orderNumber       String      @unique
   customerId        String
   conversationId    String?
-  quoteId           String?
   status            String      @default("draft")
   subtotal          Decimal     @db.Decimal(12, 2)
   discountAmount    Decimal     @default(0) @db.Decimal(12, 2)
@@ -165,14 +109,11 @@ model Order {
   updatedAt         DateTime    @updatedAt
   customer          Customer    @relation(fields: [customerId], references: [id])
   items             OrderItem[]
-  invoices          Invoice[]
-  payments          Payment[]
 }
 
 model OrderItem {
   id                  String            @id @default(cuid())
   orderId             String
-  cardboardProductId  String?
   productNameSnapshot String
   quantity            Int
   unitPrice           Decimal           @db.Decimal(12, 2)
@@ -184,62 +125,17 @@ model OrderItem {
   lebar               Float?
   tinggi              Float?
   order               Order             @relation(fields: [orderId], references: [id])
-  cardboardProduct    CardboardProduct? @relation(fields: [cardboardProductId], references: [id])
-}
-
-model Invoice {
-  id            String    @id @default(cuid())
-  invoiceNumber String    @unique
-  orderId       String
-  customerId    String
-  status        String    @default("issued")
-  issuedAt      DateTime  @default(now())
-  dueAt         DateTime?
-  subtotal      Decimal   @db.Decimal(12, 2)
-  totalAmount   Decimal   @db.Decimal(12, 2)
-  fileUrl       String?
-  order         Order     @relation(fields: [orderId], references: [id])
-  payments      Payment[]
-}
-
-model Payment {
-  id              String    @id @default(cuid())
-  orderId         String
-  invoiceId       String?
-  customerId      String
-  amount          Decimal   @db.Decimal(12, 2)
-  paymentMethod   String?
-  referenceNumber String?
-  proofUrl        String?
-  status          String    @default("pending")
-  paidAt          DateTime?
-  verifiedAt      DateTime?
-  verifiedBy      String?
-  createdAt       DateTime  @default(now())
-  order           Order     @relation(fields: [orderId], references: [id])
-  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
 }
 
 // ─── AI & Knowledge ──────────────────────────────────
 
-model RecommendationSession {
-  id                String   @id @default(cuid())
-  customerId        String
-  conversationId    String?
-  needSummary       String?
-  budget            Decimal? @db.Decimal(12, 2)
-  urgency           String?
-  preferredCategory String?
-  recommendedResult Json?
-  createdAt         DateTime @default(now())
-}
-
 model FaqEntry {
-  id       String  @id @default(cuid())
-  question String
-  answer   String
-  category String?
-  isActive Boolean @default(true)
+  id        String                          @id @default(cuid())
+  question  String
+  answer    String
+  category  String?
+  isActive  Boolean                         @default(true)
+  embedding Unsupported("vector(1536)")?
 }
 
 model LlmLog {
@@ -274,6 +170,21 @@ model BotConfig {
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model KnowledgeChunk {
+  id         String                          @id @default(cuid())
+  sourceType String                           // "faq" | "pricing" | "bot_behavior" | "policy" | "custom"
+  sourceId   String?                          // FK to original record if applicable
+  title      String
+  content    String                           // The text chunk
+  metadata   Json?
+  embedding  Unsupported("vector(1536)")?
+  isActive   Boolean                         @default(true)
+  createdAt  DateTime                        @default(now())
+  updatedAt  DateTime                        @updatedAt
+
+  @@index([sourceType])
 }
 
 // ─── Enums ───────────────────────────────────────────

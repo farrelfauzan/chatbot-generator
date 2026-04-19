@@ -60,26 +60,6 @@ async function main() {
   // ─── Bank Accounts (legacy — DOKU only now) ────────
   // No bank accounts seeded. Payment is via DOKU payment link only.
 
-  // ─── Sablon Options ────────────────────────────────
-
-  const sablonOptions = [
-    { name: "Sablon 1 Sisi", sidesCount: 1, pricePerSide: 500, isActive: true },
-    { name: "Sablon 2 Sisi", sidesCount: 2, pricePerSide: 500, isActive: true },
-    { name: "Sablon 3 Sisi", sidesCount: 3, pricePerSide: 500, isActive: true },
-    { name: "Sablon 4 Sisi", sidesCount: 4, pricePerSide: 500, isActive: true },
-  ];
-
-  for (const opt of sablonOptions) {
-    const existing = await prisma.sablonOption.findFirst({
-      where: { sidesCount: opt.sidesCount },
-    });
-    if (!existing) {
-      await prisma.sablonOption.create({ data: opt });
-    }
-  }
-
-  console.log(`  ✅ ${sablonOptions.length} sablon options seeded`);
-
   // ─── FAQ Entries ────────────────────────────────────
 
   const faqEntries = [
