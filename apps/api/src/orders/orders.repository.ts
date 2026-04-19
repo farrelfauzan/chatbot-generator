@@ -67,13 +67,6 @@ export class OrderRepository implements IOrderRepository {
         sablonTotal: data.sablonTotal ?? 0,
         items: {
           create: data.items.map((item) => ({
-            ...(item.cardboardProductId
-              ? {
-                  cardboardProduct: {
-                    connect: { id: item.cardboardProductId },
-                  },
-                }
-              : {}),
             productNameSnapshot: item.productNameSnapshot,
             quantity: item.quantity,
             unitPrice: item.unitPrice,

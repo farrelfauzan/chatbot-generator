@@ -3,10 +3,9 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrderRepository } from './orders.repository';
 import { ORDER_REPOSITORY } from './orders.repository.interface';
-import { CardboardModule } from '../cardboard/cardboard.module';
 
 @Module({
-  imports: [CardboardModule],
+  imports: [],
   controllers: [OrdersController],
   providers: [
     OrdersService,

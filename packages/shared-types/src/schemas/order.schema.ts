@@ -36,7 +36,6 @@ export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export const orderItemResponseSchema = z.object({
   id: z.string(),
   orderId: z.string(),
-  cardboardProductId: z.string().nullable(),
   productNameSnapshot: z.string(),
   quantity: z.number(),
   unitPrice: z.number(),
@@ -55,7 +54,6 @@ export const orderResponseSchema = z.object({
   orderNumber: z.string(),
   customerId: z.string(),
   conversationId: z.string().nullable(),
-  quoteId: z.string().nullable(),
   status: orderStatusSchema,
   subtotal: z.number(),
   discountAmount: z.number(),

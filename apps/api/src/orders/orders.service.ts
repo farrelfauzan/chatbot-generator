@@ -3,7 +3,6 @@ import {
   ORDER_REPOSITORY,
   type IOrderRepository,
 } from './orders.repository.interface';
-import { CardboardService } from '../cardboard/cardboard.service';
 import type {
   CreateOrderInput,
   OrderQuery,
@@ -15,7 +14,6 @@ export class OrdersService {
   constructor(
     @Inject(ORDER_REPOSITORY)
     private readonly orderRepo: IOrderRepository,
-    private readonly cardboard: CardboardService,
   ) {}
 
   async findAll(query?: OrderQuery) {
@@ -37,28 +35,13 @@ export class OrdersService {
     let subtotal = 0;
 
     for (const item of input.items) {
-      let productName: string;
-      let price: number;
-
-      if (item.productId) {
-        // Legacy: lookup from database
-        const product = await this.cardboard.findById(item.productId);
-        if (!product) {
-          throw new NotFoundException(`Product ${item.productId} not found`);
-        }
-        productName = product.name;
-        price = Number(product.pricePerPcs);
-      } else {
-        // Formula-based: price & name provided directly
-        productName = item.productName ?? 'Custom Box';
-        price = item.unitPrice ?? 0;
-      }
+      const productName = item.productName ?? 'Custom Box';
+      const price = item.unitPrice ?? 0;
 
       const lineTotal = price * item.quantity;
       subtotal += lineTotal;
 
       items.push({
-        cardboardProductId: item.productId,
         productNameSnapshot: productName,
         quantity: item.quantity,
         unitPrice: price,

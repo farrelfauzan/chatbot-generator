@@ -18,7 +18,6 @@ export interface OrderCreateData {
   sablonSides?: number;
   sablonTotal?: number;
   items: Array<{
-    cardboardProductId?: string;
     productNameSnapshot: string;
     quantity: number;
     unitPrice: number;
