@@ -10,11 +10,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { IntentModule } from './intent/intent.module';
 import { FaqModule } from './faq/faq.module';
-import { PricingModule } from './pricing/pricing.module';
-import { RecommendationModule } from './recommendation/recommendation.module';
 import { OrdersModule } from './orders/orders.module';
-import { InvoicesModule } from './invoices/invoices.module';
-import { PaymentsModule } from './payments/payments.module';
 import { PromptTemplateModule } from './prompt-templates/prompt-template.module';
 import { AuthModule } from './auth/auth.module';
 import { SettingsModule } from './settings/settings.module';
@@ -22,8 +18,10 @@ import { RedisModule } from './redis/redis.module';
 import { ChatSessionModule } from './chat-session/chat-session.module';
 import { S3Module } from './s3/s3.module';
 import { DokuModule } from './doku/doku.module';
-import { CardboardModule } from './cardboard/cardboard.module';
 import { CatalogImagesModule } from './catalog-images/catalog-images.module';
+import { EmbeddingModule } from './embedding/embedding.module';
+import { VectorSearchModule } from './vector-search/vector-search.module';
+import { IngestionModule } from './ingestion/ingestion.module';
 
 @Module({
   imports: [
@@ -41,12 +39,10 @@ import { CatalogImagesModule } from './catalog-images/catalog-images.module';
     MessagesModule,
     IntentModule,
     FaqModule,
-    PricingModule,
-    RecommendationModule,
     OrdersModule,
-    InvoicesModule,
-    PaymentsModule,
-    CardboardModule,
+    EmbeddingModule,
+    VectorSearchModule,
+    IngestionModule,
     CatalogImagesModule,
     ConversationsModule,
     WebhooksModule,
