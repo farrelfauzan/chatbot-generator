@@ -1,0 +1,73 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../database/prisma.service';
+import { EmbeddingService } from '../embedding/embedding.service';
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  content: string;
+  sourceType: string;
+  sourceId: string | null;
+  metadata: any;
+  similarity: number;
+}
+
+export interface FaqSearchResult {
+  id: string;
+  question: string;
+  answer: string;
+  category: string | null;
+  similarity: number;
+}
+
+@Injectable()
+export class VectorSearchService {
+  private readonly logger = new Logger(VectorSearchService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly embedding: EmbeddingService,
+  ) {}
+
+  async searchKnowledge(
+    query: string,
+    options?: { sourceType?: string; topK?: number },
+  ): Promise<SearchResult[]> {
+    const topK = options?.topK ?? 5;
+
+    const queryEmbedding = await this.embedding.embedText(query);
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+
+    if (options?.sourceType) {
+      return this.prisma.client.$queryRaw<SearchResult[]>`
+        SELECT id, title, content, "sourceType", "sourceId", metadata,
+               1 - (embedding <=> ${embeddingStr}::vector) AS similarity
+        FROM "KnowledgeChunk"
+        WHERE "isActive" = true AND embedding IS NOT NULL
+          AND "sourceType" = ${options.sourceType}
+        ORDER BY embedding <=> ${embeddingStr}::vector
+        LIMIT ${topK}`;
+    }
+
+    return this.prisma.client.$queryRaw<SearchResult[]>`
+      SELECT id, title, content, "sourceType", "sourceId", metadata,
+             1 - (embedding <=> ${embeddingStr}::vector) AS similarity
+      FROM "KnowledgeChunk"
+      WHERE "isActive" = true AND embedding IS NOT NULL
+      ORDER BY embedding <=> ${embeddingStr}::vector
+      LIMIT ${topK}`;
+  }
+
+  async searchFaq(query: string, topK: number = 5): Promise<FaqSearchResult[]> {
+    const queryEmbedding = await this.embedding.embedText(query);
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+
+    return this.prisma.client.$queryRaw<FaqSearchResult[]>`
+      SELECT id, question, answer, category,
+             1 - (embedding <=> ${embeddingStr}::vector) AS similarity
+      FROM "FaqEntry"
+      WHERE "isActive" = true AND embedding IS NOT NULL
+      ORDER BY embedding <=> ${embeddingStr}::vector
+      LIMIT ${topK}`;
+  }
+}
