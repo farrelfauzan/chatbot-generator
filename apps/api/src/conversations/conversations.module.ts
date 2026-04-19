@@ -8,14 +8,13 @@ import { CustomersModule } from '../customers/customers.module';
 import { MessagesModule } from '../messages/messages.module';
 import { FaqModule } from '../faq/faq.module';
 import { OrdersModule } from '../orders/orders.module';
-import { InvoicesModule } from '../invoices/invoices.module';
-import { PaymentsModule } from '../payments/payments.module';
 import { GowaModule } from '../gowa/gowa.module';
 import { ChatSessionModule } from '../chat-session/chat-session.module';
 import { SettingsModule } from '../settings/settings.module';
 import { CatalogImagesModule } from '../catalog-images/catalog-images.module';
 import { DokuModule } from '../doku/doku.module';
 import { PromptTemplateModule } from '../prompt-templates/prompt-template.module';
+import { VectorSearchModule } from '../vector-search/vector-search.module';
 
 @Module({
   imports: [
@@ -23,14 +22,13 @@ import { PromptTemplateModule } from '../prompt-templates/prompt-template.module
     MessagesModule,
     FaqModule,
     OrdersModule,
-    InvoicesModule,
-    PaymentsModule,
     GowaModule,
     ChatSessionModule,
     SettingsModule,
     CatalogImagesModule,
     DokuModule,
     PromptTemplateModule,
+    VectorSearchModule,
   ],
   controllers: [ConversationsController],
   providers: [

@@ -6,9 +6,8 @@ import { MessagesService } from '../messages/messages.service';
 import { CatalogImagesService } from '../catalog-images/catalog-images.service';
 import { FaqService } from '../faq/faq.service';
 import { OrdersService } from '../orders/orders.service';
-import { InvoicesService } from '../invoices/invoices.service';
-import { PaymentsService } from '../payments/payments.service';
 import { GowaService } from '../gowa/gowa.service';
+import { VectorSearchService } from '../vector-search/vector-search.service';
 import {
   ChatSessionService,
   type CartItem,
@@ -234,16 +233,40 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     function: {
       name: 'get_faq',
       description:
-        'Get FAQ answers about shipping, payment, sablon, materials, location, returns, etc.',
+        'Search FAQ using semantic search. Use this for customer questions about shipping, payment, sablon, materials, location, returns, etc.',
       parameters: {
         type: 'object',
         properties: {
           topic: {
             type: 'string',
-            description:
-              'Topic to look up: shipping, payment, products, location, order, sablon',
+            description: 'The customer question or topic to search for',
           },
         },
+        required: ['topic'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_knowledge',
+      description:
+        'Search the knowledge base for pricing rules, bot behaviour guidelines, policies, or any business information. Use this when you need specific business rules or pricing formulas.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Search query describing what information you need',
+          },
+          source_type: {
+            type: 'string',
+            enum: ['faq', 'pricing', 'bot_behavior', 'policy', 'all'],
+            description:
+              'Filter by knowledge source type. Use "all" or omit to search everything.',
+          },
+        },
+        required: ['query'],
       },
     },
   },
@@ -283,6 +306,7 @@ export class ConversationOrchestratorService {
     private readonly chatSession: ChatSessionService,
     private readonly doku: DokuService,
     private readonly promptTemplates: PromptTemplateService,
+    private readonly vectorSearch: VectorSearchService,
   ) {}
 
   /**
@@ -1165,23 +1189,35 @@ export class ConversationOrchestratorService {
         }
 
         case 'get_faq': {
-          const entries = await this.faq.listActive();
-          const filtered = args.topic
-            ? entries.filter(
-                (f) =>
-                  f.category
-                    ?.toLowerCase()
-                    .includes(args.topic.toLowerCase()) ||
-                  f.question.toLowerCase().includes(args.topic.toLowerCase()),
-              )
-            : entries;
-          if (filtered.length === 0) {
+          const topic = args.topic || '';
+          const results = await this.faq.semanticSearch(topic, 5);
+          if (results.length === 0) {
             return 'Tidak ada FAQ yang cocok. Coba tanyakan langsung ya kak.';
           }
-          const faqLines = filtered.map(
-            (f, i) => `${i + 1}. *${f.question}*\n   ${f.answer}`,
+          const faqLines = results.map(
+            (f: any, i: number) => `${i + 1}. *${f.question}*\n   ${f.answer}`,
           );
           return `❓ *FAQ*\n\n${faqLines.join('\n\n')}`;
+        }
+
+        case 'search_knowledge': {
+          const query = args.query || '';
+          const sourceType =
+            args.source_type && args.source_type !== 'all'
+              ? args.source_type
+              : undefined;
+          const results = await this.vectorSearch.searchKnowledge(query, {
+            sourceType,
+            topK: 5,
+          });
+          if (results.length === 0) {
+            return 'Tidak ditemukan informasi yang relevan.';
+          }
+          const lines = results.map(
+            (r, i) =>
+              `${i + 1}. [${r.sourceType}] *${r.title}*\n   ${r.content}`,
+          );
+          return lines.join('\n\n');
         }
 
         case 'get_payment_info': {
