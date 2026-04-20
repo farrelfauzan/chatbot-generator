@@ -518,6 +518,34 @@ export class ConversationOrchestratorService {
 
     // 5. Run the agent loop (LLM + tool calls)
     const pendingImages: { phone: string; url: string; caption: string }[] = [];
+
+    // Auto-send catalog image + hardcoded greeting on first message (don't rely on LLM)
+    if (conversation.stage === 'greeting' && !priorConversationId) {
+      const images = await this.catalogImages.findAll();
+      if (images.length > 0) {
+        const firstImage = images[0];
+        pendingImages.push({
+          phone: payload.phone,
+          url: firstImage.imageUrl,
+          caption:
+            firstImage.title +
+            (firstImage.description ? `\n${firstImage.description}` : ''),
+        });
+      }
+
+      const customerName = customer.name || 'kakak';
+      const greetingReply = `Halo kak ${customerName} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
+
+      await this.messages.storeOutbound(conversation.id, greetingReply);
+      await this.conversations.touchOutbound(conversation.id);
+      await this.gowa.sendText(payload.phone, greetingReply);
+
+      for (const img of pendingImages) {
+        await this.gowa.sendImage(img.phone, img.url, img.caption);
+      }
+      return;
+    }
+
     let reply = await this.runAgentLoop(
       chatMessages,
       customer,
