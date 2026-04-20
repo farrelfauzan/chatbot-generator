@@ -1290,6 +1290,11 @@ export class ConversationOrchestratorService {
             itemLines.push(line);
           }
 
+          // Enforce minimum order Rp 300.000
+          if (grandTotal < 300000) {
+            return `Maaf kak, minimal order kami Rp 300.000 ya.\nTotal saat ini: ${this.formatRupiah(grandTotal)}.\nSilakan tambah item lagi kak 😊`;
+          }
+
           const order = await this.orders.create({
             customerId: customer.id,
             conversationId: conversation.id,
