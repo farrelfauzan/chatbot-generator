@@ -231,37 +231,26 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'get_faq',
-      description:
-        'Search FAQ using semantic search. Use this for customer questions about shipping, payment, sablon, materials, location, returns, etc.',
-      parameters: {
-        type: 'object',
-        properties: {
-          topic: {
-            type: 'string',
-            description: 'The customer question or topic to search for',
-          },
-        },
-        required: ['topic'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'search_knowledge',
       description:
-        'Search the knowledge base for pricing rules, bot behaviour guidelines, policies, or any business information. Use this when you need specific business rules or pricing formulas.',
+        'Search the knowledge base for ANY customer question — product info, food grade, materials, pricing, delivery, payment, cancellation, sablon, policies, FAQ, business hours, etc. ALWAYS use this tool first when a customer asks a question. This is your primary source of truth.',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'Search query describing what information you need',
+            description:
+              "Search query — use the customer's question or topic in Indonesian",
           },
           source_type: {
             type: 'string',
-            enum: ['faq', 'pricing', 'bot_behavior', 'policy', 'all'],
+            enum: [
+              'pricing',
+              'business_info',
+              'policy',
+              'faq_knowledge',
+              'all',
+            ],
             description:
               'Filter by knowledge source type. Use "all" or omit to search everything.',
           },
@@ -282,8 +271,8 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
 
 const ORCHESTRATOR_SLUG = 'conversation-orchestrator';
 
-const FALLBACK_PROMPT = `You are a friendly WhatsApp sales assistant for a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
-Respond in Indonesian. Use tools to calculate prices, manage cart, and process orders. Never make up prices or payment info.`;
+const FALLBACK_PROMPT = `You are a friendly WhatsApp sales assistant for Mader Packer, a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
+Respond in Indonesian. For ANY customer question, ALWAYS call search_knowledge first to get the answer from our knowledge base. Never answer from memory. Never make up prices or payment info.`;
 
 @Injectable()
 export class ConversationOrchestratorService {
@@ -489,7 +478,7 @@ export class ConversationOrchestratorService {
       chatMessages,
       customer,
       conversation,
-      5,
+      8,
       pendingImages,
     );
 
@@ -563,6 +552,8 @@ export class ConversationOrchestratorService {
       if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
         messages.push(assistantMsg);
 
+        let lastToolWasKnowledgeSearch = false;
+
         for (const toolCall of assistantMsg.tool_calls) {
           const result = await this.executeTool(
             toolCall.function.name,
@@ -576,6 +567,13 @@ export class ConversationOrchestratorService {
             `Tool: ${toolCall.function.name}(${toolCall.function.arguments}) → ${result.substring(0, 200)}`,
           );
 
+          const fnName = toolCall.function.name.replace(/^default_api\./, '');
+          if (fnName === 'search_knowledge' || fnName === 'get_faq') {
+            lastToolWasKnowledgeSearch = true;
+          } else {
+            lastToolWasKnowledgeSearch = false;
+          }
+
           lastToolResult = result;
 
           messages.push({
@@ -583,6 +581,11 @@ export class ConversationOrchestratorService {
             tool_call_id: toolCall.id,
             content: result,
           });
+        }
+
+        // For knowledge search, NEVER bypass LLM — it must synthesize a natural reply
+        if (lastToolWasKnowledgeSearch) {
+          lastToolResult = null;
         }
 
         // Reset nullCount after successful tool execution so LLM can
@@ -726,36 +729,22 @@ export class ConversationOrchestratorService {
             if (quantity) {
               const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
               let result = [
-                `🍕 *Dus Pizza*`,
-                `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
-                `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
+                `🍕 *Dus Pizza* ${p}×${l}×${t} cm`,
+                `Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
               ];
               if (sablonSides > 0) {
                 result.push(
-                  `   Sablon ${sablonSides} sisi: +${this.formatRupiah(totals.sablonPerPcs)}/pcs`,
-                );
-                result.push(
-                  `   Total per pcs: ${this.formatRupiah(totals.totalPerPcs)}`,
+                  `Sablon ${sablonSides} sisi: +${this.formatRupiah(totals.sablonPerPcs)}/pcs`,
                 );
               }
               result.push(
-                '',
-                `📦 *${quantity} pcs × ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}*`,
-                '',
-                '🚚 Gratis ongkir!',
+                ``,
+                `*${quantity} pcs = ${this.formatRupiah(totals.grandTotal)}*`,
               );
               return result.join('\n');
             }
 
-            return [
-              `🍕 *Dus Pizza*`,
-              `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
-              `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
-              '',
-              '🚚 Gratis ongkir!',
-              '',
-              'Mau pesan berapa pcs kak? 😊',
-            ].join('\n');
+            return `🍕 *Dus Pizza* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(pricePerPcs)}/pcs*\n\nMau pesan berapa pcs kak?`;
           }
 
           // dus_baru — default to singlewall if no specific material requested
@@ -771,36 +760,22 @@ export class ConversationOrchestratorService {
           if (quantity) {
             const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
             let result = [
-              `📦 *Dus Indomie — ${materialLabels[material]}*`,
-              `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
-              `   Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
+              `📦 *Dus Indomie — ${materialLabels[material]}* ${p}×${l}×${t} cm`,
+              `Harga: ${this.formatRupiah(pricePerPcs)}/pcs`,
             ];
             if (sablonSides > 0) {
               result.push(
-                `   Sablon ${sablonSides} sisi: +${this.formatRupiah(totals.sablonPerPcs)}/pcs`,
-              );
-              result.push(
-                `   Total per pcs: ${this.formatRupiah(totals.totalPerPcs)}`,
+                `Sablon ${sablonSides} sisi: +${this.formatRupiah(totals.sablonPerPcs)}/pcs`,
               );
             }
             result.push(
-              '',
-              `📦 *${quantity} pcs × ${this.formatRupiah(totals.totalPerPcs)} = ${this.formatRupiah(totals.grandTotal)}*`,
-              '',
-              '🚚 Gratis ongkir!',
+              ``,
+              `*${quantity} pcs = ${this.formatRupiah(totals.grandTotal)}*`,
             );
             return result.join('\n');
           }
 
-          return [
-            `📦 *Dus Indomie — ${materialLabels[material]}*`,
-            `   📐 Panjang: ${p}cm × Lebar: ${l}cm × Tinggi: ${t}cm`,
-            `   Harga: *${this.formatRupiah(pricePerPcs)}/pcs*`,
-            '',
-            '🚚 Gratis ongkir!',
-            '',
-            'Mau pesan berapa pcs kak? 😊',
-          ].join('\n');
+          return `📦 *Dus Indomie — ${materialLabels[material]}* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(pricePerPcs)}/pcs*\n\nMau pesan berapa pcs kak?`;
         }
 
         case 'send_catalog_images': {
@@ -820,7 +795,7 @@ export class ConversationOrchestratorService {
           });
 
           const customerName = customer.name || 'kakak';
-          return `Halo, kak ${customerName} 👋 kami supplier dus/kardus custom di Kapuk, Jakarta Barat 📍\n\nKami punya 2 jenis dus:\n1. *Dus Indomie* — kotak biasa (RSC)\n2. *Dus Pizza* — kotak die-cut\n\nBisa custom ukuran apa aja! 🚚 Gratis ongkir!\n\nAda yang bisa dibantu kak? 😊`;
+          return `Halo kak ${customerName} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
         }
 
         case 'send_sablon_samples': {
@@ -840,7 +815,7 @@ export class ConversationOrchestratorService {
             });
           }
 
-          return `Ini contoh hasil sablon kami ya kak 📸\n\nSablon bisa di 1-4 sisi dus, biaya Rp 500/sisi. Kalau mau sablon, tinggal share desainnya ya kak 😊`;
+          return `Ini contoh sablon kami kak 📸\nBiaya Rp 500/sisi (1-4 sisi). Kirim desainnya ya kak 😊`;
         }
 
         case 'add_to_cart': {
@@ -897,14 +872,7 @@ export class ConversationOrchestratorService {
             line += ` (termasuk sablon ${sablonSides} sisi)`;
           }
 
-          return [
-            `✅ Ditambahkan ke keranjang:`,
-            line,
-            '',
-            `🛒 Total item di keranjang: ${cart.length}`,
-            '',
-            'Ada lagi yang mau ditambahkan kak? 😊',
-          ].join('\n');
+          return `✅ Ditambahkan:\n${line}\n\n🛒 ${cart.length} item di keranjang. Ada lagi kak?`;
         }
 
         case 'view_cart': {
@@ -936,9 +904,8 @@ export class ConversationOrchestratorService {
             ...itemLines,
             '',
             `*Total: ${this.formatRupiah(grandTotal)}*`,
-            '🚚 Gratis ongkir!',
             '',
-            'Sudah benar semua kak? Mau lanjut order? 😊',
+            'Sudah benar kak? Lanjut order?',
           ].join('\n');
         }
 
@@ -1048,12 +1015,7 @@ export class ConversationOrchestratorService {
             changes.push(`jumlah diubah ke ${newQty} pcs`);
           }
 
-          return [
-            `✏️ Item #${itemNum} diperbarui${changes.length > 0 ? ' (' + changes.join(', ') + ')' : ''}:`,
-            line,
-            '',
-            'Ada lagi yang mau diubah atau ditambahkan kak? 😊',
-          ].join('\n');
+          return `✏️ Item #${itemNum} diperbarui${changes.length > 0 ? ' (' + changes.join(', ') + ')' : ''}:\n${line}\n\nAda lagi kak?`;
         }
 
         case 'confirm_order': {
@@ -1135,13 +1097,12 @@ export class ConversationOrchestratorService {
           });
 
           return [
-            '✅ *Pesanan berhasil dibuat!*',
-            `No. Pesanan: *${order.orderNumber}*`,
+            '✅ *Pesanan dibuat!*',
+            `No: *${order.orderNumber}*`,
             '',
             ...itemLines,
             '',
             `*Total: ${this.formatRupiah(Number(order.totalAmount))}*`,
-            '🚚 Gratis ongkir!',
             ...paymentSection,
           ].join('\n');
         }
@@ -1165,12 +1126,7 @@ export class ConversationOrchestratorService {
           });
           await this.chatSession.deleteSession(customer.phoneNumber);
 
-          return [
-            '❌ *Pesanan dibatalkan*',
-            '',
-            'Keranjang sudah dikosongkan.',
-            'Kalau mau pesan lagi nanti, tinggal chat aja ya kak! 😊',
-          ].join('\n');
+          return '❌ Pesanan dibatalkan. Kalau mau pesan lagi, chat aja ya kak! 😊';
         }
 
         case 'get_order_status': {
@@ -1189,15 +1145,19 @@ export class ConversationOrchestratorService {
         }
 
         case 'get_faq': {
+          // Redirect to search_knowledge with faq_knowledge source type
           const topic = args.topic || '';
-          const results = await this.faq.semanticSearch(topic, 5);
+          const results = await this.vectorSearch.searchKnowledge(topic, {
+            sourceType: 'faq_knowledge',
+            topK: 5,
+          });
           if (results.length === 0) {
             return 'Tidak ada FAQ yang cocok. Coba tanyakan langsung ya kak.';
           }
           const faqLines = results.map(
-            (f: any, i: number) => `${i + 1}. *${f.question}*\n   ${f.answer}`,
+            (r, i: number) => `${i + 1}. ${r.content}`,
           );
-          return `❓ *FAQ*\n\n${faqLines.join('\n\n')}`;
+          return faqLines.join('\n\n');
         }
 
         case 'search_knowledge': {
