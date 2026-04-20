@@ -44,20 +44,23 @@ model Customer {
 }
 
 model Conversation {
-  id              String    @id @default(cuid())
-  customerId      String
-  status          String    @default("active")
-  stage           String    @default("greeting")
-  lastInboundAt   DateTime?
-  lastOutboundAt  DateTime?
-  assignedAdminId String?
-  closedAt        DateTime?
-  closeReason     String?
-  cartSnapshot    Json?                           // Cart items saved on session expiry
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  customer        Customer  @relation(fields: [customerId], references: [id])
-  messages        Message[]
+  id               String    @id @default(cuid())
+  customerId       String
+  status           String    @default("active")
+  stage            String    @default("greeting")
+  mode             String    @default("bot")      // "bot" | "agent"
+  lastInboundAt    DateTime?
+  lastOutboundAt   DateTime?
+  assignedAdminId  String?
+  closedAt         DateTime?
+  closeReason      String?
+  escalatedAt      DateTime?
+  escalationReason String?
+  cartSnapshot     Json?                           // Cart items saved on session expiry
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  customer         Customer  @relation(fields: [customerId], references: [id])
+  messages         Message[]
 }
 
 model Message {
@@ -66,6 +69,7 @@ model Message {
   direction        MessageFlow
   content          String
   messageType      String       @default("text")
+  senderType       String       @default("bot")    // "bot" | "agent" | "customer"
   rawPayload       Json?
   gatewayMessageId String?
   createdAt        DateTime     @default(now())

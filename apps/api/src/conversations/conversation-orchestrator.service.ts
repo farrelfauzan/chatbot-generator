@@ -360,6 +360,50 @@ export class ConversationOrchestratorService {
     });
     await this.conversations.touchInbound(conversation.id);
 
+    // 3.5. If conversation is in agent mode, skip LLM — just store and notify PIC
+    if (conversation.mode === 'agent') {
+      this.logger.log(
+        `Conversation ${conversation.id} is in agent mode — skipping LLM`,
+      );
+      return;
+    }
+
+    // 3.6. Detect explicit escalation phrases
+    const escalationPhrases = [
+      'ngomong sama admin',
+      'bicara sama admin',
+      'hubungi cs',
+      'hubungi admin',
+      'mau ke admin',
+      'minta admin',
+      'tolong admin',
+      'mau complain',
+      'mau komplain',
+    ];
+    const msgLower = payload.message.toLowerCase();
+    const wantsHuman = escalationPhrases.some((p) => msgLower.includes(p));
+    if (wantsHuman) {
+      await this.conversations.update(conversation.id, {
+        mode: 'agent',
+        escalatedAt: new Date(),
+        escalationReason: 'Customer meminta bicara dengan admin',
+      } as any);
+
+      const picPhone = '6281296924424';
+      const customerName = customer.name || 'Customer';
+      await this.gowa.sendText(
+        picPhone,
+        `⚠️ Customer ${customerName} (${customer.phoneNumber}) minta bicara admin.\nPesan: "${payload.message}"`,
+      );
+
+      const escalationReply =
+        'Baik kak, kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
+      await this.messages.storeOutbound(conversation.id, escalationReply);
+      await this.conversations.touchOutbound(conversation.id);
+      await this.gowa.sendText(payload.phone, escalationReply);
+      return;
+    }
+
     // 4. Build conversation history for context
     const history = await this.messages.findByConversationId(conversation.id);
     let stageHint = '';
@@ -1170,9 +1214,31 @@ export class ConversationOrchestratorService {
             sourceType,
             topK: 5,
           });
-          if (results.length === 0) {
-            return 'Tidak ditemukan informasi yang relevan.';
+
+          // Check if any result explicitly says to escalate
+          const needsEscalation = results.some((r) =>
+            r.content.toLowerCase().includes('→ escalate'),
+          );
+
+          if (results.length === 0 || needsEscalation) {
+            // Auto-escalate to human agent
+            await this.conversations.update(conversation.id, {
+              mode: 'agent',
+              escalatedAt: new Date(),
+              escalationReason: query,
+            } as any);
+
+            // Notify PIC via WhatsApp
+            const picPhone = '6281381035295';
+            const customerName = customer.name || 'Customer';
+            await this.gowa.sendText(
+              picPhone,
+              `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nAlasan: ${query}`,
+            );
+
+            return 'ESCALATE: Pertanyaan ini perlu ditangani oleh tim. Balas customer: "Baik kak, kami diskusikan dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
           }
+
           const lines = results.map(
             (r, i) =>
               `${i + 1}. [${r.sourceType}] *${r.title}*\n   ${r.content}`,
