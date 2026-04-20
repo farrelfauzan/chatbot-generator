@@ -12,7 +12,7 @@ import {
   ChatSessionService,
   type CartItem,
 } from '../chat-session/chat-session.service';
-import { SettingsService } from '../settings/settings.service';
+
 import { DokuService } from '../doku/doku.service';
 import type { DokuInvoiceResult } from '../doku/doku.service';
 import { PromptTemplateService } from '../prompt-templates/prompt-template.service';
@@ -20,9 +20,7 @@ import { appConfig } from '../app.config';
 import {
   calculatePrice,
   calculateTotal,
-  calculateSurfaceArea,
   calculatePizzaSheet,
-  MATERIALS_DUS_BARU,
   type BoxType,
   type Material,
 } from '../cardboard/pricing';
@@ -274,6 +272,23 @@ const ORCHESTRATOR_SLUG = 'conversation-orchestrator';
 const FALLBACK_PROMPT = `You are a friendly WhatsApp sales assistant for Mader Packer, a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
 Respond in Indonesian. For ANY customer question, ALWAYS call search_knowledge first to get the answer from our knowledge base. Never answer from memory. Never make up prices or payment info.`;
 
+const PIC_PHONE = '6281296924424';
+
+const ESCALATION_PHRASES = [
+  'ngomong sama admin',
+  'bicara sama admin',
+  'hubungi cs',
+  'hubungi admin',
+  'mau ke admin',
+  'minta admin',
+  'tolong admin',
+  'mau complain',
+  'mau komplain',
+];
+
+const GREETING_TEMPLATE = (name: string) =>
+  `Halo kak ${name} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
+
 @Injectable()
 export class ConversationOrchestratorService {
   private readonly logger = new Logger(ConversationOrchestratorService.name);
@@ -298,44 +313,83 @@ export class ConversationOrchestratorService {
     private readonly vectorSearch: VectorSearchService,
   ) {}
 
-  /**
-   * This is the main entry point for handling an inbound WhatsApp message from Gowa. It will:
-   * 1. Upsert the customer based on phone number
-   * 2. Resolve the conversation via chat session (create new if no active session)
-   * 3. Store the inbound message
-   * 4. Build the conversation history and system prompt for LLM context
-   * 5. Run the agent loop (LLM + tool calls) to get a reply
-   * @param payload
-   * @returns
-   *
-   */
   async handleInboundMessage(payload: GowaInboundMessage): Promise<void> {
-    // 1. Upsert customer
     const customer = await this.customers.upsertByPhone(payload.phone, {
       ...(payload.senderName ? { name: payload.senderName } : {}),
     });
 
-    // 2. Resolve conversation via session
+    const { conversation, priorConversationId } =
+      await this.resolveConversation(customer, payload.phone);
+
+    await this.messages.storeInbound(conversation.id, payload.message, {
+      gatewayMessageId: payload.messageId,
+      rawPayload: payload as any,
+    });
+    await this.conversations.touchInbound(conversation.id);
+
+    // Agent mode — store message only, skip LLM
+    if (conversation.mode === 'agent') {
+      this.logger.log(
+        `Conversation ${conversation.id} in agent mode — skipping LLM`,
+      );
+      return;
+    }
+
+    // Explicit escalation request
+    if (this.isEscalationRequest(payload.message)) {
+      await this.escalateToAgent(conversation, customer, payload);
+      return;
+    }
+
+    // First greeting — deterministic reply + catalog image
+    if (conversation.stage === 'greeting' && !priorConversationId) {
+      await this.handleGreeting(conversation, customer, payload.phone);
+      return;
+    }
+
+    // Build LLM context and run agent loop
+    const chatMessages = await this.buildChatMessages(
+      customer,
+      conversation,
+      priorConversationId,
+      payload.phone,
+    );
+
+    const pendingImages: { phone: string; url: string; caption: string }[] = [];
+    let reply = await this.runAgentLoop(
+      chatMessages,
+      customer,
+      conversation,
+      8,
+      pendingImages,
+    );
+
+    reply = reply.replace(/\\n/g, '\n');
+    await this.sendReply(conversation.id, payload.phone, reply, pendingImages);
+  }
+
+  // ─── Private: Conversation Resolution ────────────────
+
+  private async resolveConversation(
+    customer: any,
+    phone: string,
+  ): Promise<{ conversation: any; priorConversationId: string | null }> {
     let conversation: any;
     let priorConversationId: string | null = null;
-    const existingSession = await this.chatSession.getSession(payload.phone);
+    const existingSession = await this.chatSession.getSession(phone);
 
     if (existingSession) {
-      // Active session — reuse conversation, refresh TTL
       conversation = await this.conversations.findById(
         existingSession.conversationId,
       );
       if (!conversation || conversation.status !== 'active') {
-        // Session stale — only carry context if it expired due to idle
         if (conversation?.closeReason === 'session_expired') {
           priorConversationId = existingSession.conversationId;
         }
         conversation = await this.conversations.create(customer.id);
       }
-      await this.chatSession.refreshSession(payload.phone);
+      await this.chatSession.refreshSession(phone);
     } else {
-      // No session — look up the most recent conversation for context continuity
-      // Only carry context if the previous session expired due to idle (not payment, cancellation, etc.)
       const lastConvo = await this.conversations.findLatestByCustomerId(
         customer.id,
       );
@@ -345,235 +399,224 @@ export class ConversationOrchestratorService {
       conversation = await this.conversations.create(customer.id);
     }
 
-    // Always ensure session is set
-    await this.chatSession.createSession(payload.phone, {
+    await this.chatSession.createSession(phone, {
       conversationId: conversation.id,
       customerId: customer.id,
-      phone: payload.phone,
+      phone,
       lastActivity: new Date().toISOString(),
     });
 
-    // 3. Store inbound message
-    await this.messages.storeInbound(conversation.id, payload.message, {
-      gatewayMessageId: payload.messageId,
-      rawPayload: payload as any,
-    });
-    await this.conversations.touchInbound(conversation.id);
+    return { conversation, priorConversationId };
+  }
 
-    // 3.5. If conversation is in agent mode, skip LLM — just store and notify PIC
-    if (conversation.mode === 'agent') {
-      this.logger.log(
-        `Conversation ${conversation.id} is in agent mode — skipping LLM`,
-      );
-      return;
+  // ─── Private: Escalation ─────────────────────────────
+
+  private isEscalationRequest(message: string): boolean {
+    const msgLower = message.toLowerCase();
+    return ESCALATION_PHRASES.some((p) => msgLower.includes(p));
+  }
+
+  private async escalateToAgent(
+    conversation: any,
+    customer: any,
+    payload: GowaInboundMessage,
+  ): Promise<void> {
+    await this.conversations.update(conversation.id, {
+      mode: 'agent',
+      escalatedAt: new Date(),
+      escalationReason: 'Customer meminta bicara dengan admin',
+    } as any);
+
+    const customerName = customer.name || 'Customer';
+    await this.gowa.sendText(
+      PIC_PHONE,
+      `⚠️ Customer ${customerName} (${customer.phoneNumber}) minta bicara admin.\nPesan: "${payload.message}"`,
+    );
+
+    const reply =
+      'Baik kak, kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
+    await this.messages.storeOutbound(conversation.id, reply);
+    await this.conversations.touchOutbound(conversation.id);
+    await this.gowa.sendText(payload.phone, reply);
+  }
+
+  // ─── Private: Greeting ──────────────────────────────
+
+  private async handleGreeting(
+    conversation: any,
+    customer: any,
+    phone: string,
+  ): Promise<void> {
+    const images = await this.catalogImages.findAll();
+    const greetingReply = GREETING_TEMPLATE(customer.name || 'kakak');
+
+    await this.messages.storeOutbound(conversation.id, greetingReply);
+    await this.conversations.touchOutbound(conversation.id);
+    await this.conversations.update(conversation.id, { stage: 'pricing' });
+    await this.gowa.sendText(phone, greetingReply);
+
+    if (images.length > 0) {
+      const img = images[0];
+      const caption =
+        img.title + (img.description ? `\n${img.description}` : '');
+      await this.gowa.sendImage(phone, img.imageUrl, caption);
     }
+  }
 
-    // 3.6. Detect explicit escalation phrases
-    const escalationPhrases = [
-      'ngomong sama admin',
-      'bicara sama admin',
-      'hubungi cs',
-      'hubungi admin',
-      'mau ke admin',
-      'minta admin',
-      'tolong admin',
-      'mau complain',
-      'mau komplain',
-    ];
-    const msgLower = payload.message.toLowerCase();
-    const wantsHuman = escalationPhrases.some((p) => msgLower.includes(p));
-    if (wantsHuman) {
-      await this.conversations.update(conversation.id, {
-        mode: 'agent',
-        escalatedAt: new Date(),
-        escalationReason: 'Customer meminta bicara dengan admin',
-      } as any);
+  // ─── Private: Build LLM Chat Messages ───────────────
 
-      const picPhone = '6281296924424';
-      const customerName = customer.name || 'Customer';
-      await this.gowa.sendText(
-        picPhone,
-        `⚠️ Customer ${customerName} (${customer.phoneNumber}) minta bicara admin.\nPesan: "${payload.message}"`,
-      );
-
-      const escalationReply =
-        'Baik kak, kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
-      await this.messages.storeOutbound(conversation.id, escalationReply);
-      await this.conversations.touchOutbound(conversation.id);
-      await this.gowa.sendText(payload.phone, escalationReply);
-      return;
-    }
-
-    // 4. Build conversation history for context
-    const history = await this.messages.findByConversationId(conversation.id);
-    let stageHint = '';
-    if (conversation.stage === 'collecting_items') {
-      stageHint = [
-        '\n⚠️ CONVERSATION STAGE: collecting_items',
-        'The customer is building their cart. There are items in the cart already.',
-        'If the customer wants to add more items, use add_to_cart. You MUST call the tool, not just say you added it.',
-        'If the customer says they are done (e.g. "sudah", "itu aja", "sudah itu aja", "cukup", "gak ada lagi", "udah", "segitu aja", "engga", "ngga", "no"), call view_cart IMMEDIATELY.',
-        'Do NOT confirm_order yet — show the summary first via view_cart.\n',
-      ].join('\n');
-    } else if (conversation.stage === 'order_summary') {
-      stageHint = [
-        '\n⚠️ CONVERSATION STAGE: order_summary',
-        'The customer has been shown the order summary and is deciding whether to confirm.',
-        'CRITICAL: If the customer says ANYTHING affirmative (e.g. "ya", "ok", "oke", "benar", "betul", "lanjut", "order", "iya", "yoi", "yup", "sip", "gas", "jadi", "deal", "siap", "boleh"), you MUST call confirm_order IMMEDIATELY. Do NOT just reply with text — you MUST use the tool.',
-        'If the customer wants to change items, help them modify the cart (add_to_cart / remove_from_cart / update_cart_item).',
-        'If the customer wants to cancel, use cancel_order.\n',
-      ].join('\n');
-    } else if (conversation.stage === 'order_confirm') {
-      stageHint = [
-        '\n⚠️ CONVERSATION STAGE: order_confirm',
-        'The customer has a confirmed order. A payment link was already sent (or attempted).',
-        'If the customer asks for the payment link again, or says "bayar", or asks how to pay, call get_payment_info to generate/resend the link.',
-        'If the customer wants to cancel or change the order, respond naturally.',
-        'Do NOT ask "Lanjut ke pembayaran?" — the payment link was already provided.\n',
-      ].join('\n');
-    }
-    const customerContext = `\nCUSTOMER INFO:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phoneNumber}\n${stageHint}`;
-
-    // Resolve system prompt from DB (falls back to minimal prompt if not seeded)
+  private async buildChatMessages(
+    customer: any,
+    conversation: any,
+    priorConversationId: string | null,
+    phone: string,
+  ): Promise<OpenAI.ChatCompletionMessageParam[]> {
     const systemPrompt = await this.promptTemplates.resolve(
       ORCHESTRATOR_SLUG,
       { customerName: customer.name || 'kakak' },
       FALLBACK_PROMPT,
     );
 
+    const stageHint = this.buildStageHint(conversation.stage);
+    const customerContext = `\nCUSTOMER INFO:\n- Name: ${customer.name || 'Unknown'}\n- Phone: ${customer.phoneNumber}\n${stageHint}`;
+
     const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
-      {
-        role: 'system',
-        content: systemPrompt + customerContext,
-      },
+      { role: 'system', content: systemPrompt + customerContext },
     ];
 
-    // Include prior conversation history for context continuity (when session expired)
     if (priorConversationId) {
-      // Restore cart from prior conversation snapshot
-      const priorConvo = (await this.conversations.findById(
+      await this.buildPriorContext(
+        chatMessages,
+        conversation,
         priorConversationId,
-      )) as any;
-      if (priorConvo?.cartSnapshot) {
-        const cartItems = priorConvo.cartSnapshot as any[];
-        for (const item of cartItems) {
-          await this.chatSession.addToCart(payload.phone, item);
-        }
-        // Set stage to collecting_items since there are items in cart
-        await this.conversations.update(conversation.id, {
-          stage: 'collecting_items',
-        });
-        conversation.stage = 'collecting_items';
-        this.logger.log(
-          `Restored ${cartItems.length} cart items from prior conversation ${priorConversationId}`,
-        );
-      }
-
-      const priorHistory =
-        await this.messages.findByConversationId(priorConversationId);
-      const priorMessages = priorHistory.slice(-20);
-      if (priorMessages.length > 0) {
-        chatMessages.push({
-          role: 'system',
-          content:
-            '--- PREVIOUS CONVERSATION (session expired due to inactivity, customer is back) ---\nThe following is the chat history from the previous session. Use it to maintain context. Do NOT greet again — acknowledge that the customer is back and continue naturally.',
-        });
-        for (const msg of priorMessages) {
-          chatMessages.push({
-            role: msg.direction === 'inbound' ? 'user' : 'assistant',
-            content: msg.content,
-          });
-        }
-        chatMessages.push({
-          role: 'system',
-          content:
-            '--- END OF PREVIOUS CONVERSATION ---\nThe customer has returned. Continue from where you left off. Do NOT repeat the greeting or send catalog images again.',
-        });
-      }
-
-      // Tell the LLM about restored cart
-      if (priorConvo?.cartSnapshot) {
-        const cartItems = priorConvo.cartSnapshot as any[];
-        const cartSummary = cartItems
-          .map(
-            (item: any, i: number) =>
-              `${i + 1}. ${item.productName} x${item.quantity} - Rp${item.unitPrice?.toLocaleString('id-ID')}/pcs`,
-          )
-          .join('\n');
-        chatMessages.push({
-          role: 'system',
-          content: `⚠️ CART RESTORED FROM PREVIOUS SESSION:\nThe customer's cart has been restored. Current items:\n${cartSummary}\nAcknowledge the cart is still saved and ask if they want to continue or make changes.`,
-        });
-      }
+        phone,
+      );
     }
 
-    // Include last 20 messages for context
-    const recentHistory = history.slice(-20);
-    for (const msg of recentHistory) {
+    const history = await this.messages.findByConversationId(conversation.id);
+    for (const msg of history.slice(-20)) {
       chatMessages.push({
         role: msg.direction === 'inbound' ? 'user' : 'assistant',
         content: msg.content,
       });
     }
 
-    // 5. Run the agent loop (LLM + tool calls)
-    const pendingImages: { phone: string; url: string; caption: string }[] = [];
+    return chatMessages;
+  }
 
-    // Auto-send catalog image + hardcoded greeting on first message (don't rely on LLM)
-    if (conversation.stage === 'greeting' && !priorConversationId) {
-      const images = await this.catalogImages.findAll();
-      if (images.length > 0) {
-        const firstImage = images[0];
-        pendingImages.push({
-          phone: payload.phone,
-          url: firstImage.imageUrl,
-          caption:
-            firstImage.title +
-            (firstImage.description ? `\n${firstImage.description}` : ''),
+  private buildStageHint(stage: string): string {
+    switch (stage) {
+      case 'collecting_items':
+        return [
+          '\n⚠️ CONVERSATION STAGE: collecting_items',
+          'The customer is building their cart. There are items in the cart already.',
+          'If the customer wants to add more items, use add_to_cart. You MUST call the tool, not just say you added it.',
+          'If the customer says they are done (e.g. "sudah", "itu aja", "sudah itu aja", "cukup", "gak ada lagi", "udah", "segitu aja", "engga", "ngga", "no"), call view_cart IMMEDIATELY.',
+          'Do NOT confirm_order yet — show the summary first via view_cart.\n',
+        ].join('\n');
+      case 'order_summary':
+        return [
+          '\n⚠️ CONVERSATION STAGE: order_summary',
+          'The customer has been shown the order summary and is deciding whether to confirm.',
+          'CRITICAL: If the customer says ANYTHING affirmative (e.g. "ya", "ok", "oke", "benar", "betul", "lanjut", "order", "iya", "yoi", "yup", "sip", "gas", "jadi", "deal", "siap", "boleh"), you MUST call confirm_order IMMEDIATELY. Do NOT just reply with text — you MUST use the tool.',
+          'If the customer wants to change items, help them modify the cart (add_to_cart / remove_from_cart / update_cart_item).',
+          'If the customer wants to cancel, use cancel_order.\n',
+        ].join('\n');
+      case 'order_confirm':
+        return [
+          '\n⚠️ CONVERSATION STAGE: order_confirm',
+          'The customer has a confirmed order. A payment link was already sent (or attempted).',
+          'If the customer asks for the payment link again, or says "bayar", or asks how to pay, call get_payment_info to generate/resend the link.',
+          'If the customer wants to cancel or change the order, respond naturally.',
+          'Do NOT ask "Lanjut ke pembayaran?" — the payment link was already provided.\n',
+        ].join('\n');
+      default:
+        return '';
+    }
+  }
+
+  private async buildPriorContext(
+    chatMessages: OpenAI.ChatCompletionMessageParam[],
+    conversation: any,
+    priorConversationId: string,
+    phone: string,
+  ): Promise<void> {
+    const priorConvo = (await this.conversations.findById(
+      priorConversationId,
+    )) as any;
+
+    // Restore cart
+    if (priorConvo?.cartSnapshot) {
+      const cartItems = priorConvo.cartSnapshot as any[];
+      for (const item of cartItems) {
+        await this.chatSession.addToCart(phone, item);
+      }
+      await this.conversations.update(conversation.id, {
+        stage: 'collecting_items',
+      });
+      conversation.stage = 'collecting_items';
+      this.logger.log(
+        `Restored ${cartItems.length} cart items from prior conversation`,
+      );
+    }
+
+    // Inject prior messages
+    const priorHistory =
+      await this.messages.findByConversationId(priorConversationId);
+    const priorMessages = priorHistory.slice(-20);
+    if (priorMessages.length > 0) {
+      chatMessages.push({
+        role: 'system',
+        content:
+          '--- PREVIOUS CONVERSATION (session expired due to inactivity, customer is back) ---\nUse the following history to maintain context. Do NOT greet again.',
+      });
+      for (const msg of priorMessages) {
+        chatMessages.push({
+          role: msg.direction === 'inbound' ? 'user' : 'assistant',
+          content: msg.content,
         });
       }
-
-      const customerName = customer.name || 'kakak';
-      const greetingReply = `Halo kak ${customerName} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
-
-      await this.messages.storeOutbound(conversation.id, greetingReply);
-      await this.conversations.touchOutbound(conversation.id);
-      await this.gowa.sendText(payload.phone, greetingReply);
-
-      for (const img of pendingImages) {
-        await this.gowa.sendImage(img.phone, img.url, img.caption);
-      }
-      return;
+      chatMessages.push({
+        role: 'system',
+        content:
+          '--- END OF PREVIOUS CONVERSATION ---\nContinue from where you left off.',
+      });
     }
 
-    let reply = await this.runAgentLoop(
-      chatMessages,
-      customer,
-      conversation,
-      8,
-      pendingImages,
-    );
+    // Inform about restored cart
+    if (priorConvo?.cartSnapshot) {
+      const cartItems = priorConvo.cartSnapshot as any[];
+      const cartSummary = cartItems
+        .map(
+          (item: any, i: number) =>
+            `${i + 1}. ${item.productName} x${item.quantity} - Rp${item.unitPrice?.toLocaleString('id-ID')}/pcs`,
+        )
+        .join('\n');
+      chatMessages.push({
+        role: 'system',
+        content: `⚠️ CART RESTORED:\n${cartSummary}\nAcknowledge the cart is still saved and ask if they want to continue or make changes.`,
+      });
+    }
+  }
 
-    // Sanitize: replace literal \n with actual newlines (LLM sometimes escapes them)
-    reply = reply.replace(/\\n/g, '\n');
+  // ─── Private: Send Reply ─────────────────────────────
 
-    // Guard: never send empty message
+  private async sendReply(
+    conversationId: string,
+    phone: string,
+    reply: string,
+    pendingImages: { phone: string; url: string; caption: string }[],
+  ): Promise<void> {
     if (!reply || !reply.trim()) {
       this.logger.warn('Agent loop returned empty reply, sending fallback');
-      const fallback =
+      reply =
         'Maaf, saya tidak bisa memproses pesan Anda saat ini. Bisa coba ulangi? 🙏';
-      await this.messages.storeOutbound(conversation.id, fallback);
-      await this.conversations.touchOutbound(conversation.id);
-      await this.gowa.sendText(payload.phone, fallback);
-      return;
     }
 
-    // 7. Store outbound & send text reply first
-    await this.messages.storeOutbound(conversation.id, reply);
-    await this.conversations.touchOutbound(conversation.id);
-    await this.gowa.sendText(payload.phone, reply);
+    await this.messages.storeOutbound(conversationId, reply);
+    await this.conversations.touchOutbound(conversationId);
+    await this.gowa.sendText(phone, reply);
 
-    // 8. Send any pending images AFTER the text reply
     for (const img of pendingImages) {
       await this.gowa.sendImage(img.phone, img.url, img.caption);
     }
@@ -856,7 +899,6 @@ export class ConversationOrchestratorService {
             return 'Foto katalog belum tersedia. Silakan sebutkan ukuran yang dibutuhkan, kami bisa buatkan custom sesuai kebutuhan!';
           }
 
-          // Only send the first image (opening/catalog pic)
           const firstImage = images[0];
           pendingImages.push({
             phone: customer.phoneNumber,
@@ -866,8 +908,7 @@ export class ConversationOrchestratorService {
               (firstImage.description ? `\n${firstImage.description}` : ''),
           });
 
-          const customerName = customer.name || 'kakak';
-          return `Halo kak ${customerName} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
+          return GREETING_TEMPLATE(customer.name || 'kakak');
         }
 
         case 'send_sablon_samples': {
@@ -1257,10 +1298,9 @@ export class ConversationOrchestratorService {
             } as any);
 
             // Notify PIC via WhatsApp
-            const picPhone = '6281381035295';
             const customerName = customer.name || 'Customer';
             await this.gowa.sendText(
-              picPhone,
+              PIC_PHONE,
               `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nAlasan: ${query}`,
             );
 
