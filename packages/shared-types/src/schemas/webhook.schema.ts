@@ -19,6 +19,9 @@ export const gowaInboundMessageSchema = z.object({
   messageId: z.string().optional(),
   timestamp: z.number().optional(),
   senderName: z.string().optional(),
+  mediaUrl: z.string().optional(),
+  mediaType: z.string().optional(),
+  mediaFilename: z.string().optional(),
 });
 
 export type GowaInboundMessage = z.infer<typeof gowaInboundMessageSchema>;

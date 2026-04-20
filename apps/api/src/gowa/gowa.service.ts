@@ -52,6 +52,27 @@ export class GowaService {
     }
   }
 
+  async downloadMedia(mediaUrl: string): Promise<Buffer> {
+    this.logger.debug(`GoWa → downloading media from ${mediaUrl}`);
+    const res = await fetch(mediaUrl, {
+      headers: {
+        ...(this.basicAuth
+          ? {
+              Authorization: `Basic ${Buffer.from(this.basicAuth).toString('base64')}`,
+            }
+          : {}),
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      this.logger.error(`GoWa media download failed ${res.status}: ${text}`);
+      throw new Error(`GoWa media download failed: ${res.status}`);
+    }
+
+    return Buffer.from(await res.arrayBuffer());
+  }
+
   private async post(
     path: string,
     body: Record<string, unknown>,

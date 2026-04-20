@@ -69,8 +69,11 @@ export class WebhooksController {
     }
 
     const message = this.extractMessageText(payload);
-    if (!message) {
-      this.logger.debug('No text content in message, skipping');
+    const media = this.extractMedia(payload);
+
+    // Skip if no text AND no media
+    if (!message && !media) {
+      this.logger.debug('No text or media content in message, skipping');
       return { status: 'ok', skipped: true };
     }
 
@@ -92,12 +95,19 @@ export class WebhooksController {
 
     const normalized: GowaInboundMessage = {
       phone,
-      message,
+      message: message || '[Media tanpa caption]',
       messageId: (payload.id as string) ?? undefined,
       timestamp: payload.timestamp
         ? Math.floor(new Date(payload.timestamp as string).getTime() / 1000)
         : undefined,
       senderName: (payload.from_name as string) ?? undefined,
+      ...(media
+        ? {
+            mediaUrl: media.url,
+            mediaType: media.mimeType,
+            mediaFilename: media.filename,
+          }
+        : {}),
     };
 
     // Deduplicate: skip if we already processed this messageId
@@ -127,7 +137,9 @@ export class WebhooksController {
     }
 
     try {
-      this.logger.log(`Inbound from ${phone}: ${message.substring(0, 80)}`);
+      this.logger.log(
+        `Inbound from ${phone}: ${(message || '[media]').substring(0, 80)}`,
+      );
       await this.orchestrator.handleInboundMessage(normalized);
       return { status: 'ok' };
     } finally {
@@ -171,6 +183,37 @@ export class WebhooksController {
       const media = payload[mediaKey];
       if (media && typeof media === 'object' && (media as any).caption) {
         return (media as any).caption as string;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract media info (URL, mimeType, filename) from the payload.
+   */
+  private extractMedia(
+    payload: Record<string, unknown>,
+  ): { url: string; mimeType: string; filename: string } | null {
+    for (const mediaKey of ['image', 'video', 'document', 'audio', 'sticker']) {
+      const media = payload[mediaKey] as Record<string, unknown> | undefined;
+      if (media && typeof media === 'object') {
+        const url =
+          (media.url as string) ||
+          (media.link as string) ||
+          (media.file_url as string);
+        if (!url) continue;
+
+        const mimeType =
+          (media.mimetype as string) ||
+          (media.mime_type as string) ||
+          'application/octet-stream';
+        const filename =
+          (media.filename as string) ||
+          (media.file_name as string) ||
+          `${mediaKey}.${mimeType.split('/')[1] || 'bin'}`;
+
+        return { url, mimeType, filename };
       }
     }
 

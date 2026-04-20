@@ -15,6 +15,7 @@ import { CatalogImagesModule } from '../catalog-images/catalog-images.module';
 import { DokuModule } from '../doku/doku.module';
 import { PromptTemplateModule } from '../prompt-templates/prompt-template.module';
 import { VectorSearchModule } from '../vector-search/vector-search.module';
+import { CustomerFilesModule } from '../customer-files/customer-files.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { VectorSearchModule } from '../vector-search/vector-search.module';
     DokuModule,
     PromptTemplateModule,
     VectorSearchModule,
+    CustomerFilesModule,
   ],
   controllers: [ConversationsController],
   providers: [

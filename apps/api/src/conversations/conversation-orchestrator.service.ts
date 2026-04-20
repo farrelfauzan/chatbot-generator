@@ -8,6 +8,7 @@ import { FaqService } from '../faq/faq.service';
 import { OrdersService } from '../orders/orders.service';
 import { GowaService } from '../gowa/gowa.service';
 import { VectorSearchService } from '../vector-search/vector-search.service';
+import { CustomerFilesService } from '../customer-files/customer-files.service';
 import {
   ChatSessionService,
   type CartItem,
@@ -312,6 +313,7 @@ export class ConversationOrchestratorService {
     private readonly doku: DokuService,
     private readonly promptTemplates: PromptTemplateService,
     private readonly vectorSearch: VectorSearchService,
+    private readonly customerFiles: CustomerFilesService,
   ) {}
 
   async handleInboundMessage(payload: GowaInboundMessage): Promise<void> {
@@ -327,6 +329,35 @@ export class ConversationOrchestratorService {
       rawPayload: payload as any,
     });
     await this.conversations.touchInbound(conversation.id);
+
+    // Handle media attachment (design files, photos, etc.)
+    if (payload.mediaUrl) {
+      try {
+        const savedFile = await this.customerFiles.saveFromWhatsApp({
+          customerId: customer.id,
+          conversationId: conversation.id,
+          mediaUrl: payload.mediaUrl,
+          mimeType: payload.mediaType || 'application/octet-stream',
+          originalName: payload.mediaFilename || 'file',
+        });
+        this.logger.log(
+          `Media saved: ${savedFile.originalName} (${savedFile.id})`,
+        );
+
+        // If media-only (no meaningful text), acknowledge and return
+        if (!payload.message || payload.message === '[Media tanpa caption]') {
+          const reply =
+            'File diterima kak ✅ Desainnya sudah kami simpan. Silakan lanjut chat atau kirim file lainnya ya 😊';
+          await this.messages.storeOutbound(conversation.id, reply);
+          await this.conversations.touchOutbound(conversation.id);
+          await this.gowa.sendText(payload.phone, reply);
+          return;
+        }
+      } catch (err) {
+        this.logger.error(`Failed to save media: ${(err as Error).message}`);
+        // Continue processing the text message even if media save fails
+      }
+    }
 
     // Explicit escalation request
     if (this.isEscalationRequest(payload.message)) {
@@ -627,12 +658,19 @@ export class ConversationOrchestratorService {
       let toolChoice: OpenAI.ChatCompletionToolChoiceOption = 'auto';
       if (i === 0 && !lastToolResult) {
         const stage = conversation.stage;
-        if (stage === 'order_summary' || stage === 'order_confirm' || stage === 'collecting_items') {
+        if (
+          stage === 'order_summary' ||
+          stage === 'order_confirm' ||
+          stage === 'collecting_items'
+        ) {
           // In order flow, let LLM pick the right tool (confirm_order, view_cart, etc.)
           toolChoice = 'required';
         } else {
           // For general questions, force search_knowledge specifically
-          toolChoice = { type: 'function', function: { name: 'search_knowledge' } };
+          toolChoice = {
+            type: 'function',
+            function: { name: 'search_knowledge' },
+          };
         }
       } else if (nullCount >= 2) {
         toolChoice = 'required';
@@ -1172,6 +1210,9 @@ export class ConversationOrchestratorService {
             conversationId: conversation.id,
             items: orderItems,
           });
+
+          // Link any uploaded design files to this order
+          await this.customerFiles.linkToOrder(conversation.id, order.id);
 
           // Clear cart after order is created
           await this.chatSession.clearCart(customer.phoneNumber);
