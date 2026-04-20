@@ -261,7 +261,8 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'get_payment_info',
-      description: 'Get bank account / payment transfer information.',
+      description:
+        'Generate or resend the DOKU payment link for an existing confirmed order. ONLY use when customer already has a confirmed order and asks to pay or asks for the payment link again.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -620,13 +621,30 @@ export class ConversationOrchestratorService {
     let nullCount = 0;
 
     for (let i = 0; i < maxIterations; i++) {
+      // Force search_knowledge on first iteration to prevent hallucination.
+      // The LLM MUST consult the knowledge base before responding.
+      // Exception: stages where cart/order tools are more relevant.
+      let toolChoice: OpenAI.ChatCompletionToolChoiceOption = 'auto';
+      if (i === 0 && !lastToolResult) {
+        const stage = conversation.stage;
+        if (stage === 'order_summary' || stage === 'order_confirm' || stage === 'collecting_items') {
+          // In order flow, let LLM pick the right tool (confirm_order, view_cart, etc.)
+          toolChoice = 'required';
+        } else {
+          // For general questions, force search_knowledge specifically
+          toolChoice = { type: 'function', function: { name: 'search_knowledge' } };
+        }
+      } else if (nullCount >= 2) {
+        toolChoice = 'required';
+      }
+
       let completion: OpenAI.ChatCompletion;
       try {
         completion = await this.openai.chat.completions.create({
           model: appConfig.llm.model,
           messages,
           tools: TOOLS,
-          tool_choice: nullCount >= 2 ? 'required' : 'auto',
+          tool_choice: toolChoice,
           max_tokens: appConfig.llm.maxTokens,
           temperature: appConfig.llm.temperature,
         });
