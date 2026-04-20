@@ -320,6 +320,19 @@ const KNOWLEDGE_CHUNKS = [
     content:
       "Q: Bisa pickup sampai jam berapa?\nA: Jam operasional kami Senin-Sabtu 08.00-17.00, Minggu 09.00-12.00.",
   },
+  // ─── Escalation / Admin ─────────────────────────
+  {
+    sourceType: "policy",
+    title: "Policy: Kapan harus hubungkan ke admin",
+    content:
+      "Customer harus dihubungkan ke admin/CS jika: (1) Customer secara eksplisit minta bicara admin/CS/manusia, (2) Customer komplain dan tidak puas dengan jawaban bot, (3) Customer marah atau frustasi, (4) Pertanyaan tentang status pengiriman detail yang tidak ada di sistem. Gunakan tool escalate_to_admin dengan alasan yang jelas.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Diskon dan Promo",
+    content:
+      "Q: Ada diskon/promo?\nA: Untuk saat ini belum ada promo khusus kak. Tapi untuk pemesanan dalam jumlah besar (di atas 1000 pcs), bisa diskusikan langsung dengan tim kami untuk harga spesial ya. Silakan hubungi admin untuk negosiasi.",
+  },
 ];
 
 async function embedBatch(texts: string[]): Promise<number[][]> {

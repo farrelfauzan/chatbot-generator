@@ -48,7 +48,7 @@ export class S3Service {
       }),
     );
 
-    const url = `https://${this.bucket}.s3.${appConfig.s3.region}.amazonaws.com/${key}`;
+    const url = `${appConfig.s3.cdnDomain}/${key}`;
     this.logger.log(`Uploaded ${key} → ${url}`);
     return { key, url };
   }
@@ -77,7 +77,7 @@ export class S3Service {
       { expiresIn },
     );
 
-    const publicUrl = `https://${this.bucket}.s3.${appConfig.s3.region}.amazonaws.com/${key}`;
+    const publicUrl = `${appConfig.s3.cdnDomain}/${key}`;
     return { key, uploadUrl, publicUrl };
   }
 }

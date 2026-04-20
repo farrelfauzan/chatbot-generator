@@ -33,6 +33,8 @@ export const appConfig = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
     bucket: process.env.S3_BUCKET_NAME ?? 'performa-assets',
     prefix: process.env.S3_PREFIX ?? 'chatbot-catalog-images',
+    cdnDomain:
+      process.env.S3_CDN_DOMAIN ?? 'https://dv0u9v99guak9.cloudfront.net',
   },
   doku: {
     clientId: process.env.DOKU_CLIENT_ID ?? '',

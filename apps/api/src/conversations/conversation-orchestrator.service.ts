@@ -267,6 +267,25 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
       parameters: { type: 'object', properties: {} },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'escalate_to_admin',
+      description:
+        'Connect customer to a human admin/CS. Use when: (1) customer explicitly asks to speak to admin/CS/human, (2) customer has a complaint you cannot resolve, (3) customer is frustrated and needs human attention. Do NOT use just because search_knowledge returned no results.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: {
+            type: 'string',
+            description:
+              'Brief reason for escalation (e.g. "customer minta bicara admin", "komplain pengiriman")',
+          },
+        },
+        required: ['reason'],
+      },
+    },
+  },
 ];
 
 const ORCHESTRATOR_SLUG = 'conversation-orchestrator';
@@ -275,18 +294,6 @@ const FALLBACK_PROMPT = `You are a friendly WhatsApp sales assistant for Mader P
 Respond in Indonesian. For ANY customer question, ALWAYS call search_knowledge first to get the answer from our knowledge base. Never answer from memory. Never make up prices or payment info.`;
 
 const PIC_PHONE = '6281296924424';
-
-const ESCALATION_PHRASES = [
-  'ngomong sama admin',
-  'bicara sama admin',
-  'hubungi cs',
-  'hubungi admin',
-  'mau ke admin',
-  'minta admin',
-  'tolong admin',
-  'mau complain',
-  'mau komplain',
-];
 
 const GREETING_TEMPLATE = (name: string) =>
   `Halo kak ${name} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
@@ -361,12 +368,6 @@ export class ConversationOrchestratorService {
       }
     }
 
-    // Explicit escalation request
-    if (this.isEscalationRequest(payload.message)) {
-      await this.escalateToAgent(conversation, customer, payload);
-      return;
-    }
-
     // First greeting — deterministic reply + catalog image
     if (conversation.stage === 'greeting' && !priorConversationId) {
       await this.handleGreeting(conversation, customer, payload.phone);
@@ -438,31 +439,6 @@ export class ConversationOrchestratorService {
     });
 
     return { conversation, priorConversationId };
-  }
-
-  // ─── Private: Escalation ─────────────────────────────
-
-  private isEscalationRequest(message: string): boolean {
-    const msgLower = message.toLowerCase();
-    return ESCALATION_PHRASES.some((p) => msgLower.includes(p));
-  }
-
-  private async escalateToAgent(
-    conversation: any,
-    customer: any,
-    payload: GowaInboundMessage,
-  ): Promise<void> {
-    const customerName = customer.name || 'Customer';
-    await this.gowa.sendText(
-      PIC_PHONE,
-      `⚠️ Customer ${customerName} (${customer.phoneNumber}) minta bicara admin.\nPesan: "${payload.message}"`,
-    );
-
-    const reply =
-      'Baik kak, kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
-    await this.messages.storeOutbound(conversation.id, reply);
-    await this.conversations.touchOutbound(conversation.id);
-    await this.gowa.sendText(payload.phone, reply);
   }
 
   // ─── Private: Greeting ──────────────────────────────
@@ -834,6 +810,7 @@ export class ConversationOrchestratorService {
             'update_cart_item',
             'remove_from_cart',
             'get_payment_info',
+            'escalate_to_admin',
           ];
           if (DIRECT_RELAY_TOOLS.includes(fnName)) {
             return result;
@@ -1446,10 +1423,20 @@ export class ConversationOrchestratorService {
             const customerName = customer.name || 'Customer';
             await this.gowa.sendText(
               PIC_PHONE,
-              `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nAlasan: ${query}`,
+              `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nPertanyaan: "${query}"`,
             );
 
             return 'Tidak ditemukan informasi yang relevan di knowledge base. Balas customer: "Baik kak, kami diskusikan dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
+          }
+
+          // If top result has low similarity, knowledge is likely irrelevant — also notify PIC
+          const topSimilarity = results[0]?.similarity ?? 0;
+          if (topSimilarity < 0.4) {
+            const customerName = customer.name || 'Customer';
+            await this.gowa.sendText(
+              PIC_PHONE,
+              `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nPertanyaan: "${query}" (knowledge kurang relevan, similarity: ${topSimilarity.toFixed(2)})`,
+            );
           }
 
           const lines = results.map(
@@ -1510,6 +1497,17 @@ export class ConversationOrchestratorService {
           }
 
           return 'Sistem pembayaran belum tersedia saat ini. Hubungi admin untuk info pembayaran ya kak 🙏';
+        }
+
+        case 'escalate_to_admin': {
+          const reason = args.reason || 'Customer minta bicara admin';
+          const customerName = customer.name || 'Customer';
+          await this.gowa.sendText(
+            PIC_PHONE,
+            `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan admin.\nAlasan: ${reason}`,
+          );
+
+          return 'Baik kak, kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
         }
 
         default:
