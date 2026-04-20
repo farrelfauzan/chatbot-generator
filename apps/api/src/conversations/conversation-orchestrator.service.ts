@@ -715,8 +715,49 @@ export class ConversationOrchestratorService {
           } else {
             toolChoice = 'required';
           }
-        } else if (stage === 'order_confirm' || stage === 'collecting_items') {
-          // In order flow, let LLM pick the right tool (view_cart, add_to_cart, etc.)
+        } else if (stage === 'collecting_items') {
+          // Detect if customer is done adding items
+          const lastUserMsg = messages.filter((m) => m.role === 'user').pop();
+          const userText = (
+            lastUserMsg && 'content' in lastUserMsg
+              ? (lastUserMsg.content as string)
+              : ''
+          )
+            .toLowerCase()
+            .trim();
+          const DONE_WORDS = [
+            'sudah',
+            'itu aja',
+            'cukup',
+            'gak ada lagi',
+            'udah',
+            'segitu aja',
+            'engga',
+            'ngga',
+            'no',
+            'udah itu aja',
+            'sudah itu aja',
+            'ga ada',
+            'gak ada',
+            'nggak',
+            'tidak',
+            'itu saja',
+            'itu doang',
+            'sekian',
+          ];
+          const isDone = DONE_WORDS.some(
+            (w) => userText === w || userText.includes(w),
+          );
+          if (isDone) {
+            toolChoice = {
+              type: 'function',
+              function: { name: 'view_cart' },
+            };
+          } else {
+            toolChoice = 'required';
+          }
+        } else if (stage === 'order_confirm') {
+          // Customer has confirmed order, let LLM pick tool (get_payment_info, etc.)
           toolChoice = 'required';
         } else {
           // For general questions, force search_knowledge specifically
