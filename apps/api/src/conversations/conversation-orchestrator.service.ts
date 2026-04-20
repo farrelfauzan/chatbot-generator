@@ -331,6 +331,7 @@ export class ConversationOrchestratorService {
     await this.conversations.touchInbound(conversation.id);
 
     // Handle media attachment (design files, photos, etc.)
+    let mediaContext = '';
     if (payload.mediaUrl) {
       try {
         const savedFile = await this.customerFiles.saveFromWhatsApp({
@@ -343,6 +344,7 @@ export class ConversationOrchestratorService {
         this.logger.log(
           `Media saved: ${savedFile.originalName} (${savedFile.id})`,
         );
+        mediaContext = `\n[SYSTEM: Customer sent a file (${savedFile.originalName}, ${savedFile.mimeType}). It has been automatically saved as a design reference. Acknowledge receipt of the file in your response.]`;
 
         // If media-only (no meaningful text), acknowledge and return
         if (!payload.message || payload.message === '[Media tanpa caption]') {
@@ -378,6 +380,11 @@ export class ConversationOrchestratorService {
       priorConversationId,
       payload.phone,
     );
+
+    // Inject media context so LLM knows a file was received
+    if (mediaContext) {
+      chatMessages.push({ role: 'system', content: mediaContext });
+    }
 
     const pendingImages: { phone: string; url: string; caption: string }[] = [];
     let reply = await this.runAgentLoop(
@@ -658,12 +665,58 @@ export class ConversationOrchestratorService {
       let toolChoice: OpenAI.ChatCompletionToolChoiceOption = 'auto';
       if (i === 0 && !lastToolResult) {
         const stage = conversation.stage;
-        if (
-          stage === 'order_summary' ||
-          stage === 'order_confirm' ||
-          stage === 'collecting_items'
-        ) {
-          // In order flow, let LLM pick the right tool (confirm_order, view_cart, etc.)
+        if (stage === 'order_summary') {
+          // Detect if customer is confirming the order
+          const lastUserMsg = messages.filter((m) => m.role === 'user').pop();
+          const userText = (
+            lastUserMsg && 'content' in lastUserMsg
+              ? (lastUserMsg.content as string)
+              : ''
+          )
+            .toLowerCase()
+            .trim();
+          const CONFIRM_WORDS = [
+            'ya',
+            'ok',
+            'oke',
+            'benar',
+            'betul',
+            'lanjut',
+            'order',
+            'iya',
+            'yoi',
+            'yup',
+            'sip',
+            'gas',
+            'jadi',
+            'deal',
+            'siap',
+            'boleh',
+            'acc',
+            'setuju',
+            'confirm',
+            'bener',
+            'yaa',
+            'iyaa',
+            'lanjutin',
+            'proses',
+          ];
+          const isConfirming = CONFIRM_WORDS.some(
+            (w) =>
+              userText === w ||
+              userText.startsWith(w + ' ') ||
+              userText.endsWith(' ' + w),
+          );
+          if (isConfirming) {
+            toolChoice = {
+              type: 'function',
+              function: { name: 'confirm_order' },
+            };
+          } else {
+            toolChoice = 'required';
+          }
+        } else if (stage === 'order_confirm' || stage === 'collecting_items') {
+          // In order flow, let LLM pick the right tool (view_cart, add_to_cart, etc.)
           toolChoice = 'required';
         } else {
           // For general questions, force search_knowledge specifically
@@ -729,6 +782,20 @@ export class ConversationOrchestratorService {
             lastToolWasKnowledgeSearch = true;
           } else {
             lastToolWasKnowledgeSearch = false;
+          }
+
+          // For order-critical tools, return result directly — don't let LLM rephrase
+          const DIRECT_RELAY_TOOLS = [
+            'confirm_order',
+            'cancel_order',
+            'view_cart',
+            'add_to_cart',
+            'update_cart_item',
+            'remove_from_cart',
+            'get_payment_info',
+          ];
+          if (DIRECT_RELAY_TOOLS.includes(fnName)) {
+            return result;
           }
 
           lastToolResult = result;
@@ -1356,7 +1423,15 @@ export class ConversationOrchestratorService {
             customer.id,
           );
 
-          if (latestOrder && this.doku.isConfigured) {
+          if (!latestOrder) {
+            return 'Belum ada pesanan kak. Silakan pesan dulu, nanti link pembayaran otomatis dikirim setelah order dikonfirmasi ya 😊';
+          }
+
+          if (latestOrder.status === 'cancelled') {
+            return 'Pesanan terakhir sudah dibatalkan kak. Silakan buat pesanan baru ya 😊';
+          }
+
+          if (this.doku.isConfigured) {
             const dokuResult: DokuInvoiceResult = await this.doku.createInvoice(
               {
                 orderId: latestOrder.orderNumber,
@@ -1370,6 +1445,7 @@ export class ConversationOrchestratorService {
             if (dokuResult.ok) {
               return [
                 '💳 *Pembayaran Online (DOKU)*',
+                `No. Pesanan: *${latestOrder.orderNumber}*`,
                 `Total: *${this.formatRupiah(Number(latestOrder.totalAmount))}*`,
                 '',
                 'Klik link berikut untuk bayar:',
@@ -1392,21 +1468,7 @@ export class ConversationOrchestratorService {
             ].join('\n');
           }
 
-          if (this.doku.isConfigured) {
-            return [
-              '💳 *Metode Pembayaran (DOKU)*',
-              '',
-              'Kami menerima pembayaran via:',
-              '• Virtual Account (BCA, Mandiri, BRI, BNI, dll)',
-              '• QRIS',
-              '• E-wallet (OVO, ShopeePay, DANA, LinkAja)',
-              '• Kartu Kredit',
-              '',
-              'Link pembayaran otomatis dikirim setelah pesanan dibuat ya kak 😊',
-            ].join('\n');
-          }
-
-          return 'Informasi pembayaran belum tersedia.';
+          return 'Sistem pembayaran belum tersedia saat ini. Hubungi admin untuk info pembayaran ya kak 🙏';
         }
 
         default:
