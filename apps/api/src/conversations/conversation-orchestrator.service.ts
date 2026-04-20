@@ -327,14 +327,6 @@ export class ConversationOrchestratorService {
     });
     await this.conversations.touchInbound(conversation.id);
 
-    // Agent mode — store message only, skip LLM
-    if (conversation.mode === 'agent') {
-      this.logger.log(
-        `Conversation ${conversation.id} in agent mode — skipping LLM`,
-      );
-      return;
-    }
-
     // Explicit escalation request
     if (this.isEscalationRequest(payload.message)) {
       await this.escalateToAgent(conversation, customer, payload);
@@ -421,12 +413,6 @@ export class ConversationOrchestratorService {
     customer: any,
     payload: GowaInboundMessage,
   ): Promise<void> {
-    await this.conversations.update(conversation.id, {
-      mode: 'agent',
-      escalatedAt: new Date(),
-      escalationReason: 'Customer meminta bicara dengan admin',
-    } as any);
-
     const customerName = customer.name || 'Customer';
     await this.gowa.sendText(
       PIC_PHONE,
@@ -1284,27 +1270,19 @@ export class ConversationOrchestratorService {
             topK: 5,
           });
 
-          // Check if any result explicitly says to escalate
-          const needsEscalation = results.some((r) =>
-            r.content.toLowerCase().includes('→ escalate'),
+          this.logger.debug(
+            `search_knowledge("${query}") → ${results.length} results${results.length > 0 ? ` (top similarity: ${results[0]?.similarity?.toFixed(3)})` : ''}`,
           );
 
-          if (results.length === 0 || needsEscalation) {
-            // Auto-escalate to human agent
-            await this.conversations.update(conversation.id, {
-              mode: 'agent',
-              escalatedAt: new Date(),
-              escalationReason: query,
-            } as any);
-
-            // Notify PIC via WhatsApp
+          if (results.length === 0) {
+            // No relevant results — notify PIC, but let LLM respond naturally
             const customerName = customer.name || 'Customer';
             await this.gowa.sendText(
               PIC_PHONE,
               `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nAlasan: ${query}`,
             );
 
-            return 'ESCALATE: Pertanyaan ini perlu ditangani oleh tim. Balas customer: "Baik kak, kami diskusikan dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
+            return 'Tidak ditemukan informasi yang relevan di knowledge base. Balas customer: "Baik kak, kami diskusikan dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
           }
 
           const lines = results.map(

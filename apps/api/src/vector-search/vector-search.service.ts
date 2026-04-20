@@ -31,15 +31,18 @@ export class VectorSearchService {
 
   async searchKnowledge(
     query: string,
-    options?: { sourceType?: string; topK?: number },
+    options?: { sourceType?: string; topK?: number; minSimilarity?: number },
   ): Promise<SearchResult[]> {
     const topK = options?.topK ?? 5;
+    const minSimilarity = options?.minSimilarity ?? 0.3;
 
     const queryEmbedding = await this.embedding.embedText(query);
     const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
+    let results: SearchResult[];
+
     if (options?.sourceType) {
-      return this.prisma.client.$queryRaw<SearchResult[]>`
+      results = await this.prisma.client.$queryRaw<SearchResult[]>`
         SELECT id, title, content, "sourceType", "sourceId", metadata,
                1 - (embedding <=> ${embeddingStr}::vector) AS similarity
         FROM "KnowledgeChunk"
@@ -47,15 +50,18 @@ export class VectorSearchService {
           AND "sourceType" = ${options.sourceType}
         ORDER BY embedding <=> ${embeddingStr}::vector
         LIMIT ${topK}`;
+    } else {
+      results = await this.prisma.client.$queryRaw<SearchResult[]>`
+        SELECT id, title, content, "sourceType", "sourceId", metadata,
+               1 - (embedding <=> ${embeddingStr}::vector) AS similarity
+        FROM "KnowledgeChunk"
+        WHERE "isActive" = true AND embedding IS NOT NULL
+        ORDER BY embedding <=> ${embeddingStr}::vector
+        LIMIT ${topK}`;
     }
 
-    return this.prisma.client.$queryRaw<SearchResult[]>`
-      SELECT id, title, content, "sourceType", "sourceId", metadata,
-             1 - (embedding <=> ${embeddingStr}::vector) AS similarity
-      FROM "KnowledgeChunk"
-      WHERE "isActive" = true AND embedding IS NOT NULL
-      ORDER BY embedding <=> ${embeddingStr}::vector
-      LIMIT ${topK}`;
+    // Filter out low-relevance results
+    return results.filter((r) => r.similarity >= minSimilarity);
   }
 
   async searchFaq(query: string, topK: number = 5): Promise<FaqSearchResult[]> {
