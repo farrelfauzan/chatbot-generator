@@ -293,7 +293,7 @@ const ORCHESTRATOR_SLUG = 'conversation-orchestrator';
 const FALLBACK_PROMPT = `You are a friendly WhatsApp sales assistant for Mader Packer, a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
 Respond in Indonesian. For ANY customer question, ALWAYS call search_knowledge first to get the answer from our knowledge base. Never answer from memory. Never make up prices or payment info.`;
 
-const PIC_PHONE = '6281296924424';
+const PIC_PHONE = '6287822992838';
 
 const GREETING_TEMPLATE = (name: string) =>
   `Halo kak ${name} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
