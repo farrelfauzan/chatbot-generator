@@ -12,33 +12,25 @@ const KEYWORD_RULES: Array<{ patterns: RegExp; intent: ChatIntent }> = [
     intent: 'greeting',
   },
   {
-    patterns: /\b(katalog|catalog|produk|product|daftar|list|lihat)\b/i,
-    intent: 'browse_catalog',
+    patterns:
+      /\b(shalat|sholat|salat|adzan|azan|subuh|dzuhur|ashar|maghrib|isya)\b/i,
+    intent: 'ask_prayer_times',
   },
   {
-    patterns: /\b(stok|stock|ready|tersedia|available|ada)\b/i,
-    intent: 'ask_stock',
+    patterns: /\b(catat|simpan|memo|note|ingat|tulis)\b/i,
+    intent: 'save_memo',
   },
   {
-    patterns: /\b(harga|price|berapa|biaya|cost|tarif)\b/i,
-    intent: 'ask_price',
+    patterns: /\b(jadwal|schedule|kirim nanti|reminder|ingatkan)\b/i,
+    intent: 'schedule_message',
   },
   {
-    patterns: /\b(rekomen|suggest|saran|cocok|recommend)\b/i,
-    intent: 'ask_recommendation',
+    patterns: /\b(quran|alquran|surah|ayat|tafsir|hadits|hadith|islam)\b/i,
+    intent: 'ask_islamic',
   },
   {
-    patterns: /\b(pesan|order|beli|buy|checkout)\b/i,
-    intent: 'create_order',
-  },
-  { patterns: /\b(invoice|tagihan|nota|faktur)\b/i, intent: 'request_invoice' },
-  {
-    patterns: /\b(bayar|transfer|payment|sudah bayar|bukti|lunas)\b/i,
-    intent: 'confirm_payment',
-  },
-  {
-    patterns: /\b(status|tracking|sampai mana|dimana pesanan)\b/i,
-    intent: 'ask_order_status',
+    patterns: /\b(quote|motivasi|inspirasi|semangat)\b/i,
+    intent: 'ask_quote',
   },
   {
     patterns: /\b(admin|manusia|cs|customer service|bantuan|help)\b/i,

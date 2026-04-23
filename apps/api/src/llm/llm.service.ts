@@ -1,77 +1,48 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
-} from '@nestjs/common';
-import OpenAI from 'openai';
-import { appConfig } from '../app.config';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { PromptTemplateService } from '../prompt-templates/prompt-template.service';
+import { LlmProvider } from './llm.provider';
 import type {
   GroundedContext,
   IntentClassification,
-  RecommendationRequest,
 } from '@chatbot-generator/shared-types';
 import { CHAT_INTENTS } from '@chatbot-generator/shared-types';
+import { appConfig } from '../app.config';
 
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
 
-  private readonly client = new OpenAI({
-    apiKey: appConfig.llm.apiKey || 'missing-key',
-    baseURL: appConfig.llm.baseUrl,
-  });
-
   constructor(
+    private readonly provider: LlmProvider,
     private readonly prisma: PrismaService,
     private readonly promptTemplates: PromptTemplateService,
   ) {}
 
   getPublicConfig() {
-    return {
-      provider: appConfig.llm.provider,
-      baseUrl: appConfig.llm.baseUrl,
-      model: appConfig.llm.model,
-      ready: Boolean(appConfig.llm.apiKey),
-    };
+    return this.provider.getPublicConfig();
   }
-
-  // ─── Simple chat (kept for backward compat) ───────
 
   async complete(message: string) {
-    if (!message.trim()) {
-      throw new BadRequestException('Message is required.');
-    }
-    this.ensureApiKey();
+    if (!message.trim()) throw new Error('Message is required.');
 
-    const completion = await this.client.chat.completions.create({
-      model: appConfig.llm.model,
+    const result = await this.provider.chatCompletion({
       messages: [{ role: 'user', content: message }],
-      max_tokens: appConfig.llm.maxTokens,
-      temperature: appConfig.llm.temperature,
     });
 
-    const content = completion.choices[0]?.message?.content ?? '';
-
-    await this.logLlmCall(null, null, message, content);
+    await this.logLlmCall(null, null, message, result.content || '');
 
     return {
       provider: appConfig.llm.provider,
-      model: completion.model ?? appConfig.llm.model,
-      content,
+      model: result.model,
+      content: result.content || '',
     };
   }
-
-  // ─── Intent Classification ──────────────────────────
 
   async classifyIntent(
     message: string,
     conversationStage: string,
   ): Promise<IntentClassification> {
-    this.ensureApiKey();
-
     const intentsJoined = CHAT_INTENTS.join(', ');
 
     const fallbackPrompt = `You are an intent classifier for a WhatsApp sales chatbot.
@@ -94,25 +65,20 @@ ${intentsJoined}
 
     const systemPrompt = await this.promptTemplates.resolve(
       'intent-classification',
-      {
-        validIntents: intentsJoined,
-        conversationStage,
-      },
+      { validIntents: intentsJoined, conversationStage },
       fallbackPrompt.replace('{{conversationStage}}', conversationStage),
     );
 
-    const completion = await this.client.chat.completions.create({
-      model: appConfig.llm.model,
+    const result = await this.provider.chatCompletion({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message },
       ],
-      max_tokens: 200,
+      maxTokens: 200,
       temperature: 0.1,
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? '';
-
+    const raw = result.content?.trim() ?? '';
     await this.logLlmCall(null, null, `[INTENT] ${message}`, raw);
 
     try {
@@ -131,14 +97,10 @@ ${intentsJoined}
     }
   }
 
-  // ─── Grounded Reply ─────────────────────────────────
-
   async generateGroundedReply(
     userMessage: string,
     context: GroundedContext,
   ): Promise<string> {
-    this.ensureApiKey();
-
     const fallbackPrompt = `You are a WhatsApp sales assistant.
 
 RULES:
@@ -174,128 +136,16 @@ FAQ DATA:
       fallbackPrompt,
     );
 
-    const completion = await this.client.chat.completions.create({
-      model: appConfig.llm.model,
+    const result = await this.provider.chatCompletion({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      max_tokens: appConfig.llm.maxTokens,
-      temperature: appConfig.llm.temperature,
     });
 
-    const content = completion.choices[0]?.message?.content ?? '';
-
+    const content = result.content || '';
     await this.logLlmCall(null, null, `[GROUNDED] ${userMessage}`, content);
-
     return content;
-  }
-
-  // ─── Requirement Extraction ─────────────────────────
-
-  async extractRequirements(
-    userMessage: string,
-  ): Promise<RecommendationRequest> {
-    this.ensureApiKey();
-
-    const fallbackPrompt = `Extract product requirements from the user message.
-Respond ONLY with a JSON object:
-{"category": "string or null", "budgetMax": number or null, "quantity": number or null, "useCase": "string or null", "specs": {}}
-
-Do not include any other text.`;
-
-    const systemPrompt = await this.promptTemplates.resolve(
-      'requirement-extraction',
-      {},
-      fallbackPrompt,
-    );
-
-    const completion = await this.client.chat.completions.create({
-      model: appConfig.llm.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: 200,
-      temperature: 0.1,
-    });
-
-    const raw = completion.choices[0]?.message?.content?.trim() ?? '';
-
-    await this.logLlmCall(null, null, `[EXTRACT] ${userMessage}`, raw);
-
-    try {
-      const parsed = JSON.parse(raw);
-      return {
-        category: parsed.category ?? undefined,
-        budgetMax:
-          typeof parsed.budgetMax === 'number' ? parsed.budgetMax : undefined,
-        quantity:
-          typeof parsed.quantity === 'number' ? parsed.quantity : undefined,
-        useCase: parsed.useCase ?? undefined,
-        specs: parsed.specs ?? undefined,
-      };
-    } catch {
-      this.logger.warn(`Failed to parse requirements JSON: ${raw}`);
-      return {};
-    }
-  }
-
-  // ─── Recommendation Explanation ─────────────────────
-
-  async explainRecommendation(
-    userMessage: string,
-    primaryProduct: { name: string; price: number; stockQty: number },
-    alternativeProduct: {
-      name: string;
-      price: number;
-      stockQty: number;
-    } | null,
-  ): Promise<string> {
-    this.ensureApiKey();
-
-    const fallbackPrompt = `You are a WhatsApp sales assistant helping a customer choose a product.
-Based on the customer's request and the matched products, write a friendly recommendation in Indonesian.
-Keep it concise (max 2 paragraphs). Format prices as "Rp" with thousand separators.
-NEVER invent data — only use the product info provided.
-
-PRIMARY PRODUCT: {{primaryProduct}}
-{{alternativeProduct}}`;
-
-    const systemPrompt = await this.promptTemplates.resolve(
-      'recommendation-explanation',
-      {
-        primaryProduct: JSON.stringify(primaryProduct),
-        alternativeProduct: alternativeProduct
-          ? `ALTERNATIVE: ${JSON.stringify(alternativeProduct)}`
-          : 'No alternative available.',
-      },
-      fallbackPrompt,
-    );
-
-    const completion = await this.client.chat.completions.create({
-      model: appConfig.llm.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: appConfig.llm.maxTokens,
-      temperature: appConfig.llm.temperature,
-    });
-
-    const content = completion.choices[0]?.message?.content ?? '';
-
-    await this.logLlmCall(null, null, `[RECOMMEND] ${userMessage}`, content);
-
-    return content;
-  }
-
-  // ─── Helpers ────────────────────────────────────────
-
-  private ensureApiKey(): void {
-    if (!appConfig.llm.apiKey) {
-      throw new ServiceUnavailableException('LLM_API_KEY is not configured.');
-    }
   }
 
   private async logLlmCall(

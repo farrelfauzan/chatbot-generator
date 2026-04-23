@@ -4,16 +4,8 @@ import { z } from "zod";
 
 export const CONVERSATION_STAGES = [
   "greeting",
-  "discovery",
-  "recommendation",
-  "pricing",
-  "collecting_items",
-  "order_summary",
-  "order_confirm",
-  "invoiced",
-  "payment_pending",
-  "paid",
-  "fulfilled",
+  "onboarding",
+  "active",
 ] as const;
 
 export type ConversationStage = (typeof CONVERSATION_STAGES)[number];
@@ -28,18 +20,16 @@ export const conversationStatusSchema = z.enum(CONVERSATION_STATUSES);
 
 export const CHAT_INTENTS = [
   "greeting",
-  "browse_catalog",
-  "ask_stock",
-  "ask_price",
-  "ask_product_detail",
-  "ask_recommendation",
-  "compare_products",
-  "calculate_price",
-  "objection_or_hesitation",
-  "create_order",
-  "request_invoice",
-  "confirm_payment",
-  "ask_order_status",
+  "set_prayer_reminder",
+  "ask_prayer_times",
+  "save_memo",
+  "list_memos",
+  "delete_memo",
+  "schedule_message",
+  "ask_quran",
+  "ask_islamic",
+  "ask_quote",
+  "calendar_event",
   "request_human_help",
   "general_qa",
 ] as const;
@@ -47,37 +37,17 @@ export const CHAT_INTENTS = [
 export type ChatIntent = (typeof CHAT_INTENTS)[number];
 export const chatIntentSchema = z.enum(CHAT_INTENTS);
 
-// ─── Order ───────────────────────────────────────────
+// ─── Scheduled Message ───────────────────────────────
 
-export const ORDER_STATUSES = [
-  "draft",
-  "confirmed",
-  "paid",
-  "processing",
-  "shipped",
-  "fulfilled",
+export const SCHEDULED_MESSAGE_STATUSES = [
+  "pending",
+  "sent",
+  "failed",
   "cancelled",
 ] as const;
-
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
-export const orderStatusSchema = z.enum(ORDER_STATUSES);
-
-// ─── Invoice ─────────────────────────────────────────
-
-export const INVOICE_STATUSES = [
-  "issued",
-  "paid",
-  "cancelled",
-  "overdue",
-] as const;
-export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
-export const invoiceStatusSchema = z.enum(INVOICE_STATUSES);
-
-// ─── Payment ─────────────────────────────────────────
-
-export const PAYMENT_STATUSES = ["pending", "verified", "rejected"] as const;
-export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
-export const paymentStatusSchema = z.enum(PAYMENT_STATUSES);
+export type ScheduledMessageStatus =
+  (typeof SCHEDULED_MESSAGE_STATUSES)[number];
+export const scheduledMessageStatusSchema = z.enum(SCHEDULED_MESSAGE_STATUSES);
 
 // ─── Message ─────────────────────────────────────────
 

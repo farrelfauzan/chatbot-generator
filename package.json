@@ -12,8 +12,8 @@
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
-    "prisma:generate": "pnpm --filter @chatbot-generator/database prisma generate",
-    "prisma:migrate:dev": "pnpm --filter @chatbot-generator/database prisma migrate dev"
+    "prisma:generate": "pnpm --filter @chatbot-generator/database prisma:generate",
+    "prisma:migrate:dev": "pnpm --filter @chatbot-generator/database prisma:migrate:dev"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

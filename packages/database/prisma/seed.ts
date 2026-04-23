@@ -4,18 +4,18 @@ import { hashSync } from "bcrypt";
 
 const prisma = createPrismaClient();
 
-async function main() {
-  console.log("🌱 Seeding cardboard box database...");
+export async function seed() {
+  console.log("🌱 Seeding Wulan AI database...");
 
   // ─── Admin Account ─────────────────────────────────
 
-  const adminEmail = "admin@chatbot.com";
+  const adminEmail = "admin@wulan.ai";
   await prisma.admin.upsert({
     where: { email: adminEmail },
     create: {
       email: adminEmail,
       passwordHash: hashSync("admin123", 10),
-      name: "Admin",
+      name: "Admin Wulan",
       role: "admin",
       isActive: true,
     },
@@ -27,22 +27,17 @@ async function main() {
   // ─── Company Info ──────────────────────────────────
 
   const companyInfoData = [
-    { key: "name", value: "Mader Packer" },
-    { key: "phone", value: "6282299998827" },
-    { key: "email", value: "info@maderpacker.com" },
-    { key: "address", value: "Kapuk, Jakarta Barat" },
+    { key: "name", value: "Wulan AI" },
+    { key: "phone", value: "6287822992838" },
+    { key: "email", value: "support@wulan.ai" },
     {
       key: "description",
       value:
-        "Mader Packer — Supplier dus & kardus custom. Lokasi di Kapuk, Jakarta Barat.",
-    },
-    {
-      key: "map_location",
-      value: "https://share.google/FntO8r2jdTPAnMoUL",
+        "Wulan AI — Asisten pribadi Muslim di WhatsApp. Pengingat shalat, memo cerdas, wawasan Islami, dan banyak lagi.",
     },
     {
       key: "cs_phone",
-      value: "6282299998827",
+      value: "6287822992838",
     },
   ];
 
@@ -57,260 +52,165 @@ async function main() {
 
   console.log(`  ✅ ${companyInfoData.length} company info entries seeded`);
 
-  // ─── Bank Accounts (legacy — DOKU only now) ────────
-  // No bank accounts seeded. Payment is via DOKU payment link only.
+  // ─── Bot Config ────────────────────────────────────
 
-  // ─── FAQ Entries ────────────────────────────────────
-
-  const faqEntries = [
+  const botConfigs = [
     {
-      question: "Berapa lama pengiriman?",
-      answer:
-        "Pengiriman gratis ongkir! Untuk area JABODETABEK estimasi 1-3 hari kerja. Untuk luar JABODETABEK menggunakan jasa cargo.",
-      category: "shipping",
+      key: "bot_name",
+      value: JSON.stringify("Wulan"),
     },
     {
-      question: "Estimasi pengiriman JABODETABEK?",
-      answer:
-        "Untuk area JABODETABEK (Jakarta, Bogor, Depok, Tangerang, Bekasi) estimasi pengiriman 1-3 hari kerja. Gratis ongkir!",
-      category: "shipping",
+      key: "bot_persona",
+      value: JSON.stringify("Muslim personal assistant"),
     },
     {
-      question: "Pengiriman luar JABODETABEK?",
-      answer:
-        "Untuk pengiriman luar JABODETABEK kami menggunakan jasa cargo. Biaya cargo ditanggung pembeli.",
-      category: "shipping",
+      key: "default_timezone",
+      value: JSON.stringify("Asia/Jakarta"),
     },
     {
-      question: "Dimana lokasi toko?",
-      answer:
-        "Lokasi kami di Kapuk, Jakarta Barat. Bisa datang langsung untuk ambil sendiri (pickup). Google Maps: https://g.co/kgs/MdgXHRv",
-      category: "location",
+      key: "prayer_method",
+      value: JSON.stringify(20), // Kemenag Indonesia
     },
     {
-      question: "Apakah bisa custom ukuran?",
-      answer:
-        "Bisa custom ukuran, tapi model dus yang tersedia hanya Dus Indomie (RSC) dan Dus Pizza (die-cut). Tidak bisa custom model/bentuk lain.",
-      category: "products",
-    },
-    {
-      question: "Metode pembayaran apa saja?",
-      answer:
-        "Pembayaran melalui link DOKU yang dikirim otomatis setelah pesanan dibuat. Bisa bayar via QRIS, e-wallet, atau kartu kredit.",
-      category: "payment",
-    },
-    {
-      question: "Apakah ada minimal order?",
-      answer:
-        "Minimal order Rp 300.000. Jika menggunakan sablon, minimal order 200 pcs.",
-      category: "order",
-    },
-    {
-      question: "Apa itu sablon?",
-      answer:
-        "Sablon adalah cetak logo/tulisan di permukaan dus. Biaya tambahan Rp 500 per sisi. Bisa 1-4 sisi. Minimal order sablon 200 pcs.",
-      category: "products",
-    },
-    {
-      question: "Apa perbedaan Singlewall, C-Flute, dan Doublewall?",
-      answer:
-        "Singlewall: paling tipis & ekonomis, cocok untuk barang ringan. C-Flute: ketebalan sedang, lebih kuat. Doublewall: paling tebal & kuat, cocok untuk barang berat (>10kg).",
-      category: "products",
-    },
-    {
-      question: "Bagaimana cara order?",
-      answer:
-        "Cukup chat kami ukuran (PxLxT) dan jumlah yang dibutuhkan, kami hitungkan harga dan buatkan pesanan langsung!",
-      category: "order",
-    },
-    {
-      question: "Apakah bisa pesan model dus selain Indomie dan Pizza?",
-      answer:
-        "Mohon maaf kak, saat ini kami hanya menyediakan 2 model dus: Dus Indomie (RSC) dan Dus Pizza (die-cut). Kami belum bisa menyediakan model dus lainnya.",
-      category: "products",
+      key: "daily_quote_time",
+      value: JSON.stringify("06:00"),
     },
   ];
 
-  await prisma.faqEntry.deleteMany({});
-  for (const faq of faqEntries) {
-    await prisma.faqEntry.create({
-      data: { ...faq, isActive: true },
+  for (const config of botConfigs) {
+    const existing = await prisma.botConfig.findUnique({
+      where: { key: config.key },
     });
+    if (!existing) {
+      await prisma.botConfig.create({
+        data: { key: config.key, value: JSON.parse(config.value) },
+      });
+    }
   }
 
-  console.log(`  ✅ ${faqEntries.length} FAQ entries seeded`);
+  console.log(`  ✅ ${botConfigs.length} bot configs seeded`);
 
-  // ─── Prompt Templates ──────────────────────────────
+  // ─── Daily Quotes ──────────────────────────────────
 
-  const promptTemplates = [
+  const quotes = [
     {
-      slug: "intent-classification",
-      name: "Intent Classification",
-      description: "System prompt for classifying user intent",
-      category: "intent_classification",
-      content: `You are an intent classifier for a WhatsApp chatbot that sells cardboard boxes (dus/kardus).
-Given the user message and current conversation stage, classify the intent and extract relevant entities.
-
-## Valid intents
-{{validIntents}}
-
-## Current conversation stage: {{conversationStage}}
-
-## Rules
-- Consider the conversation stage when the message is ambiguous
-- For short affirmative messages ("ok", "oke", "jadi", "lanjut", "boleh", "ya") during order_confirm stage, classify as confirm_order
-- If user mentions box dimensions or sizes, classify as consultation or ask_price
-- If user describes what they need to pack/ship, classify as consultation
-- If user asks urgently ("cepat", "urgent", "hari ini"), classify as urgent_order
-- Language may be Indonesian, English, or mixed
-- Respond ONLY with a JSON object, no other text
-
-## Response format
-{"intent": "<intent>", "entities": {"dimensions": null, "quantity": null, "material": null, "use_case": null, "order_number": null}, "confidence": 0.0}`,
-      variables: ["validIntents", "conversationStage"],
-      isActive: true,
+      content:
+        "Sesungguhnya sesudah kesulitan itu ada kemudahan. (QS. Al-Insyirah: 6)",
+      source: "Al-Quran",
+      category: "islamic",
     },
     {
-      slug: "grounded-reply",
-      name: "Grounded Reply",
-      description:
-        "System prompt for generating context-grounded WhatsApp replies",
-      category: "grounded_reply",
-      content: `You are a WhatsApp sales assistant for a cardboard box supplier in Kapuk, Jakarta Barat.
-
-RULES:
-- Answer ONLY using the product data and facts provided below.
-- NEVER invent stock quantities, prices, or order statuses.
-- If you don't know, say you'll check with the team.
-- Keep replies short (1-3 paragraphs max) — this is WhatsApp.
-- Use friendly Indonesian.
-- Format prices as "Rp" with thousand separators.
-- Always recommend the best box for the customer's use case.
-
-CONVERSATION STAGE: {{conversationStage}}
-CUSTOMER: {{customerName}}
-
-PRODUCT DATA:
-{{products}}
-
-FAQ DATA:
-{{faq}}
-
-{{orderContext}}`,
-      variables: [
-        "conversationStage",
-        "customerName",
-        "products",
-        "faq",
-        "orderContext",
-      ],
-      isActive: true,
+      content:
+        "Barangsiapa bertawakal kepada Allah, niscaya Allah akan mencukupkan keperluannya. (QS. At-Talaq: 3)",
+      source: "Al-Quran",
+      category: "islamic",
     },
     {
-      slug: "conversation-orchestrator",
-      name: "Conversation Orchestrator",
-      description:
-        "System prompt for the WhatsApp conversation orchestrator with cart-based order flow",
-      category: "orchestrator",
-      content: `You are a friendly WhatsApp sales assistant for *Mader Packer*, a corrugated cardboard box (dus/kardus) supplier in Kapuk, Jakarta Barat.
-ALWAYS respond in Indonesian (Bahasa Indonesia). NEVER switch to English.
-
-═══ KNOWLEDGE-FIRST PRINCIPLE ═══
-For ANY customer question — food grade, delivery, payment, cancellation, materials, sample, MOQ, lead time, design, sablon, ongkir, complaint, etc. — you MUST:
-1. Call search_knowledge with the customer's question as query.
-2. Read the returned knowledge chunks.
-3. Compose a SHORT, friendly WhatsApp reply based on that knowledge.
-NEVER answer from your own memory. If search_knowledge returns nothing relevant, say: "Kita diskusikan dulu dengan tim ya kak, nanti kami hubungi kembali 😊"
-
-═══ PRICING ═══
-- ALWAYS use calculate_price tool. NEVER make up prices.
-- When customer mentions dimensions (e.g. "12x12x5"), call calculate_price.
-- When customer describes a USE CASE, estimate dimensions, call calculate_price, present as RECOMMENDATION. Do NOT add to cart.
-
-═══ GREETING ═══
-- First message → call send_catalog_images, introduce Mader Packer + 2 box types.
-- Do NOT greet again if conversation already has messages.
-- After cancel_order, ONLY send cancellation farewell. Do NOT re-greet.
-
-═══ ORDER FLOW ═══
-1. Customer gives dimensions → calculate_price → present price.
-2. Customer confirms + gives quantity → add_to_cart.
-3. Customer says done → view_cart → show summary.
-4. Customer confirms → confirm_order → payment link sent automatically.
-
-DONE PHRASES (all mean "show summary"): "sudah", "itu aja", "cukup", "gak ada lagi", "udah", "segitu aja", "engga", "ngga", "no".
-When customer says ANY of these → call view_cart IMMEDIATELY.
-
-═══ CART RULES ═══
-- You MUST call add_to_cart tool. Text alone does NOT add items.
-- After add_to_cart, relay tool output verbatim. Ask: "Ada lagi kak?"
-- To modify item → update_cart_item. To remove → remove_from_cart.
-- Only call confirm_order AFTER view_cart + explicit confirmation.
-- Check minimum order Rp 300.000 before confirming.
-
-═══ CANCELLATION ═══
-- "batal", "cancel", "ga jadi" → call cancel_order.
-- If customer asks "bisa cancel?" as a QUESTION (not a request), call search_knowledge to look up cancellation policy.
-
-═══ ESCALATION ═══
-- Use escalate_to_admin tool when customer explicitly wants to talk to a human (admin/CS).
-- Also use when customer has a complaint or is frustrated and you cannot resolve it.
-- Do NOT escalate just because search_knowledge returned irrelevant results — try to help first.
-- When you escalate, just relay the tool result. Do NOT add extra text.
-
-═══ SABLON ═══
-- NEVER mention sablon/printing unless the customer asks about it first.
-- Only send_sablon_samples when customer ASKS about sablon/printing.
-- When customer says number of sides (e.g. "semua sisi" = 4 sisi, "2 sisi"), call update_cart_item IMMEDIATELY with the sablon_sides value. Do NOT say "sebentar" first.
-- If customer sends a design/logo file, acknowledge receipt and confirm sablon will use their design.
-
-═══ FORMATTING ═══
-- Keep replies SHORT (1-3 paragraphs) — this is WhatsApp.
-- Use *bold* for emphasis. Format prices as "Rp X.XXX".
-- Do NOT dump raw knowledge base output. Rephrase naturally.
-
-═══ CRITICAL RULES ═══
-- NEVER say "sebentar ya kak", "tunggu ya", or "saya update dulu" without ACTUALLY calling a tool in the same response. If you need to do something, DO IT — call the tool immediately. Never promise an action without performing it.
-- When customer sends a file/image with a caption, the file is automatically saved. Acknowledge it briefly (e.g. "File desain diterima kak ✅") then address the caption text.
-- After calling confirm_order, relay the EXACT tool result. Do NOT add your own text about payment links. The tool result already contains the payment link or error message.
-- After calling any cart tool (add_to_cart, update_cart_item, remove_from_cart, view_cart), relay the tool result verbatim. Do NOT rephrase or add filler.`,
-      variables: ["customerName"],
-      isActive: true,
+      content:
+        "Dan mohonlah pertolongan (kepada Allah) dengan sabar dan shalat. (QS. Al-Baqarah: 45)",
+      source: "Al-Quran",
+      category: "islamic",
+    },
+    {
+      content:
+        "Sebaik-baik manusia adalah yang paling bermanfaat bagi manusia lain. (HR. Ahmad)",
+      source: "Hadits",
+      category: "islamic",
+    },
+    {
+      content: "Tersenyum di hadapan saudaramu adalah sedekah. (HR. Tirmidzi)",
+      source: "Hadits",
+      category: "islamic",
+    },
+    {
+      content:
+        "Barangsiapa menempuh jalan untuk mencari ilmu, maka Allah mudahkan baginya jalan menuju surga. (HR. Muslim)",
+      source: "Hadits",
+      category: "islamic",
+    },
+    {
+      content:
+        "Tidaklah seorang muslim ditimpa suatu kelelahan, penyakit, kesusahan, kesedihan, gangguan, maupun duka, sampai duri yang menusuknya, melainkan Allah mengampuni sebagian dosa-dosanya karenanya. (HR. Bukhari)",
+      source: "Hadits",
+      category: "islamic",
+    },
+    {
+      content: "Doa adalah senjata orang beriman. (HR. Al-Hakim)",
+      source: "Hadits",
+      category: "islamic",
+    },
+    {
+      content:
+        "Jangan melihat kecilnya dosa, tapi lihatlah kepada siapa engkau bermaksiat. — Bilal bin Sa'd",
+      source: "Atsar",
+      category: "islamic",
+    },
+    {
+      content:
+        "Waktu bagaikan pedang. Jika engkau tidak memanfaatkannya, maka ia akan memotongmu. — Imam Syafi'i",
+      source: "Ulama",
+      category: "islamic",
+    },
+    {
+      content:
+        "Ilmu itu lebih baik dari harta. Ilmu menjagamu sedangkan kamu menjaga harta. — Ali bin Abi Thalib",
+      source: "Sahabat",
+      category: "islamic",
+    },
+    {
+      content:
+        "Mulailah dari tempatmu berdiri. Gunakan apa yang kamu punya. Lakukan apa yang kamu bisa.",
+      source: "Arthur Ashe",
+      category: "motivational",
+    },
+    {
+      content:
+        "Kesuksesan bukanlah final, kegagalan bukanlah fatal. Yang terpenting adalah keberanian untuk terus melangkah.",
+      source: "Winston Churchill",
+      category: "motivational",
+    },
+    {
+      content:
+        "Setiap hari adalah kesempatan baru untuk menjadi versi terbaik dari dirimu.",
+      source: "Unknown",
+      category: "motivational",
+    },
+    {
+      content: "Fokus pada progress, bukan perfection.",
+      source: "Unknown",
+      category: "productivity",
+    },
+    {
+      content:
+        "Produktivitas bukan tentang melakukan lebih banyak, tapi tentang melakukan yang tepat.",
+      source: "Unknown",
+      category: "productivity",
     },
   ];
 
-  for (const template of promptTemplates) {
-    await prisma.promptTemplate.upsert({
-      where: { slug: template.slug },
-      create: template,
-      update: {
-        name: template.name,
-        description: template.description,
-        category: template.category,
-        content: template.content,
-        variables: template.variables,
-        isActive: template.isActive,
-      },
+  let quotesCreated = 0;
+  for (const quote of quotes) {
+    const exists = await prisma.dailyQuote.findFirst({
+      where: { content: quote.content },
     });
+    if (!exists) {
+      await prisma.dailyQuote.create({ data: quote });
+      quotesCreated++;
+    }
   }
 
-  console.log(`  ✅ ${promptTemplates.length} prompt templates seeded`);
+  console.log(`  ✅ ${quotesCreated} daily quotes seeded`);
 
-  console.log("\n🎉 Seed complete!");
+  console.log("\n✨ Wulan AI seed complete!");
 }
 
-export { main as seed };
-
-// Run directly when executed as a script
-const isDirectRun =
-  import.meta.url === `file://${process.argv[1]}` ||
-  process.argv[1]?.endsWith("seed.ts");
-
-if (isDirectRun) {
-  main()
-    .catch((e) => {
-      console.error("Seed failed:", e);
-      process.exit(1);
-    })
-    .finally(() => prisma.$disconnect());
+async function main() {
+  await seed();
 }
+
+main()
+  .catch((e) => {
+    console.error("Seed failed:", e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

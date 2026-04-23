@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
-import { GowaService } from '../gowa/gowa.service';
+import { GowaProvider } from '../gowa/gowa.provider';
 import { ChatSessionService } from './chat-session.service';
 import { SESSION_EXPIRY_QUEUE } from './constants';
 
@@ -12,7 +12,7 @@ export class SessionExpiryProcessor extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly gowa: GowaService,
+    private readonly gowa: GowaProvider,
     private readonly chatSession: ChatSessionService,
   ) {
     super();
@@ -28,24 +28,12 @@ export class SessionExpiryProcessor extends WorkerHost {
     );
 
     try {
-      // Snapshot the cart before it expires with the session
-      const cart = await this.chatSession.getCart(phone);
-      const cartSnapshot = cart.length > 0 ? cart : undefined;
-      if (cartSnapshot) {
-        this.logger.log(
-          `Saving cart snapshot (${cart.length} items) for conversation ${conversationId}`,
-        );
-      }
-
       await this.prisma.client.conversation.update({
         where: { id: conversationId },
         data: {
           status: 'closed',
           closedAt: new Date(),
           closeReason: 'session_expired',
-          ...(cartSnapshot
-            ? { cartSnapshot: JSON.parse(JSON.stringify(cartSnapshot)) }
-            : {}),
         },
       });
 

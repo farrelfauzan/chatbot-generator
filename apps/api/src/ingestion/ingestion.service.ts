@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { EmbeddingService } from '../embedding/embedding.service';
+import { EmbeddingProvider } from '../embedding/embedding.provider';
 
 @Injectable()
 export class IngestionService {
@@ -8,7 +8,7 @@ export class IngestionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly embedding: EmbeddingService,
+    private readonly embedding: EmbeddingProvider,
   ) {}
 
   // ─── FAQ Ingestion ──────────────────────────────────

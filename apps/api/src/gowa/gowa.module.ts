@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { GowaService } from './gowa.service';
+import { GowaProvider } from './gowa.provider';
 
 @Module({
-  providers: [GowaService],
-  exports: [GowaService],
+  providers: [GowaProvider],
+  exports: [GowaProvider],
 })
 export class GowaModule {}

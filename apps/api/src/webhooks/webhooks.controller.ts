@@ -9,7 +9,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import Redis from 'ioredis';
 import { GowaWebhookGuard } from './gowa-webhook.guard';
-import { ConversationOrchestratorService } from '../conversations/conversation-orchestrator.service';
+import { ConversationOrchestratorUseCase } from '../conversations/conversation-orchestrator.use-case';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type {
   GowaWebhookPayload,
@@ -23,7 +23,7 @@ export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
   constructor(
-    private readonly orchestrator: ConversationOrchestratorService,
+    private readonly orchestrator: ConversationOrchestratorUseCase,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 

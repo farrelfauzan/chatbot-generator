@@ -57,30 +57,30 @@ services:
       retries: 3
       start_period: 15s
 
-  gowa:
-    build:
-      context: ../GOWA
-      dockerfile: docker/golang.Dockerfile
-    ports:
-      - "3000:3000"
-    env_file:
-      - ../GOWA/src/.env
-    environment:
-      - WHATSAPP_WEBHOOK=http://api:3001/webhooks/gowa/messages
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - gowa-storages:/app/storages
-      - gowa-statics:/app/statics
-    restart: on-failure
-    depends_on:
-      api:
-        condition: service_healthy
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "200k"
-        max-file: "10"
+  # gowa:
+  #   build:
+  #     context: ../GOWA
+  #     dockerfile: docker/golang.Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - ../GOWA/src/.env
+  #   environment:
+  #     - WHATSAPP_WEBHOOK=http://api:3001/webhooks/gowa/messages
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   volumes:
+  #     - gowa-storages:/app/storages
+  #     - gowa-statics:/app/statics
+  #   restart: on-failure
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "200k"
+  #       max-file: "10"
 
 volumes:
   postgres-data:

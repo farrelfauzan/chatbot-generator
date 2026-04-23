@@ -15,7 +15,56 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "packages/database",
-        "command": "pnpm prisma:generate"
+        "command": "npx prisma generate"
+      }
+    },
+    "migrate-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx prisma migrate dev"
+      }
+    },
+    "migrate-deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx prisma migrate deploy"
+      }
+    },
+    "migrate-reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx prisma migrate reset"
+      }
+    },
+    "seed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx tsx prisma/seed.ts"
+      }
+    },
+    "seed-knowledge": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx tsx prisma/seed-knowledge.ts"
+      }
+    },
+    "studio": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx prisma studio"
+      }
+    },
+    "db-push": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/database",
+        "command": "npx prisma db push"
       }
     }
   },

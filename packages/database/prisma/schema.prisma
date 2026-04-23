@@ -12,36 +12,41 @@ datasource db {
 // ─── Core ────────────────────────────────────────────
 
 model Admin {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   passwordHash String
   name         String
-  role         String   @default("admin")
-  isActive     Boolean  @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         String    @default("admin")
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
 }
 
 model CompanyInfo {
   id        String   @id @default(cuid())
   key       String   @unique
   value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 }
 
 model Customer {
-  id            String         @id @default(cuid())
-  phoneNumber   String         @unique
-  name          String?
-  email         String?
-  notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  conversations Conversation[]
-  orders        Order[]
-  files         CustomerFile[]
+  id                String              @id @default(cuid())
+  phoneNumber       String              @unique
+  name              String?
+  nickname          String?
+  email             String?
+  notes             String?
+  location          String?             // City for prayer times
+  timezone          String              @default("Asia/Jakarta")
+  onboardingDone    Boolean             @default(false)
+  createdAt         DateTime            @default(now()) @db.Timestamptz
+  updatedAt         DateTime            @updatedAt @db.Timestamptz
+  conversations     Conversation[]
+  memos             Memo[]
+  prayerReminder    PrayerReminder?
+  scheduledMessages ScheduledMessage[]
 }
 
 model Conversation {
@@ -50,19 +55,17 @@ model Conversation {
   status           String    @default("active")
   stage            String    @default("greeting")
   mode             String    @default("bot")      // "bot" | "agent"
-  lastInboundAt    DateTime?
-  lastOutboundAt   DateTime?
+  lastInboundAt    DateTime? @db.Timestamptz
+  lastOutboundAt   DateTime? @db.Timestamptz
   assignedAdminId  String?
-  closedAt         DateTime?
+  closedAt         DateTime? @db.Timestamptz
   closeReason      String?
-  escalatedAt      DateTime?
+  escalatedAt      DateTime? @db.Timestamptz
   escalationReason String?
-  cartSnapshot     Json?                           // Cart items saved on session expiry
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @db.Timestamptz
   customer         Customer  @relation(fields: [customerId], references: [id])
   messages         Message[]
-  files            CustomerFile[]
 }
 
 model Message {
@@ -74,64 +77,8 @@ model Message {
   senderType       String       @default("bot")    // "bot" | "agent" | "customer"
   rawPayload       Json?
   gatewayMessageId String?
-  createdAt        DateTime     @default(now())
+  createdAt        DateTime     @default(now()) @db.Timestamptz
   conversation     Conversation @relation(fields: [conversationId], references: [id])
-}
-
-// ─── Catalog ─────────────────────────────────────────
-
-model CatalogImage {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  imageUrl    String                             // S3 URL
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// ─── Commerce ────────────────────────────────────────
-
-model Order {
-  id                String      @id @default(cuid())
-  orderNumber       String      @unique
-  customerId        String
-  conversationId    String?
-  status            String      @default("draft")
-  subtotal          Decimal     @db.Decimal(12, 2)
-  discountAmount    Decimal     @default(0) @db.Decimal(12, 2)
-  shippingAmount    Decimal     @default(0) @db.Decimal(12, 2)
-  taxAmount         Decimal     @default(0) @db.Decimal(12, 2)
-  totalAmount       Decimal     @db.Decimal(12, 2)
-  sablonSides       Int         @default(0)
-  sablonTotal       Decimal     @default(0) @db.Decimal(12, 2)
-  paymentLink       String?
-  paymentGatewayId  String?
-  paymentStatus     String?                    // "pending" | "paid" | "failed" | "expired"
-  paidAt            DateTime?
-  notes             String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  customer          Customer    @relation(fields: [customerId], references: [id])
-  items             OrderItem[]
-  files             CustomerFile[]
-}
-
-model OrderItem {
-  id                  String            @id @default(cuid())
-  orderId             String
-  productNameSnapshot String
-  quantity            Int
-  unitPrice           Decimal           @db.Decimal(12, 2)
-  lineTotal           Decimal           @db.Decimal(12, 2)
-  // Custom box specs (for formula-based pricing)
-  boxType             String?           // "dus_baru" | "dus_pizza"
-  material            String?           // "singlewall" | "cflute" | "doublewall"
-  panjang             Float?
-  lebar               Float?
-  tinggi              Float?
-  order               Order             @relation(fields: [orderId], references: [id])
 }
 
 // ─── AI & Knowledge ──────────────────────────────────
@@ -152,7 +99,7 @@ model LlmLog {
   model           String
   promptSummary   String
   responseSummary String
-  createdAt       DateTime @default(now())
+  createdAt       DateTime @default(now()) @db.Timestamptz
 }
 
 model PromptTemplate {
@@ -165,8 +112,8 @@ model PromptTemplate {
   variables   Json     @default("[]")
   isActive    Boolean  @default(true)
   version     Int      @default(1)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
 
   @@index([category])
 }
@@ -175,8 +122,8 @@ model BotConfig {
   id        String   @id @default(cuid())
   key       String   @unique
   value     Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 }
 
 model KnowledgeChunk {
@@ -188,32 +135,73 @@ model KnowledgeChunk {
   metadata   Json?
   embedding  Unsupported("vector(1536)")?
   isActive   Boolean                         @default(true)
-  createdAt  DateTime                        @default(now())
-  updatedAt  DateTime                        @updatedAt
+  createdAt  DateTime                        @default(now()) @db.Timestamptz
+  updatedAt  DateTime                        @updatedAt @db.Timestamptz
 
   @@index([sourceType])
 }
 
-// ─── Customer Files ──────────────────────────────────
+// ─── Wulan AI Models ─────────────────────────────────
 
-model CustomerFile {
-  id             String       @id @default(cuid())
+model Memo {
+  id         String                       @id @default(cuid())
+  customerId String
+  content    String
+  title      String?
+  tags       String[]
+  embedding  Unsupported("vector(1536)")?
+  reminderAt DateTime?                    @db.Timestamptz
+  reminded   Boolean                      @default(false)
+  createdAt  DateTime                     @default(now()) @db.Timestamptz
+  updatedAt  DateTime                     @updatedAt @db.Timestamptz
+  customer   Customer                     @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@map("memos")
+}
+
+model PrayerReminder {
+  id         String   @id @default(cuid())
+  customerId String   @unique
+  location   String
+  timezone   String   @default("Asia/Jakarta")
+  prayers    String[] @default(["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]) // which prayers to remind
+  isActive   Boolean  @default(true)
+  lastSentKey String?  // dedup: "Fajr:04:35" prevents duplicate sends
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  @@map("prayer_reminders")
+}
+
+model ScheduledMessage {
+  id             String    @id @default(cuid())
   customerId     String
-  conversationId String
-  orderId        String?
-  fileType       String       @default("design")  // "design" | "reference" | "complaint_photo"
-  originalName   String
-  mimeType       String
-  s3Key          String
-  s3Url          String
-  fileSize       Int?
-  createdAt      DateTime     @default(now())
-  customer       Customer     @relation(fields: [customerId], references: [id])
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
-  order          Order?       @relation(fields: [orderId], references: [id])
+  targetPhone    String
+  targetName     String?
+  content        String
+  scheduledAt    DateTime  @db.Timestamptz
+  sentAt         DateTime? @db.Timestamptz
+  status         String    @default("pending") // pending | sent | failed | cancelled
+  repeatInterval String?   // null = one-time, "daily" | "weekly" | "monthly" | custom cron
+  createdAt      DateTime  @default(now()) @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @db.Timestamptz
+  customer       Customer  @relation(fields: [customerId], references: [id])
 
-  @@index([conversationId])
-  @@index([orderId])
+  @@index([customerId])
+  @@index([status, scheduledAt])
+  @@map("scheduled_messages")
+}
+
+model DailyQuote {
+  id        String   @id @default(cuid())
+  content   String
+  source    String?
+  category  String   @default("islamic") // islamic | motivational | productivity
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@map("daily_quotes")
 }
 
 // ─── Enums ───────────────────────────────────────────

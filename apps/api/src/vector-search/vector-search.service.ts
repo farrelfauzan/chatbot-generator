@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { EmbeddingService } from '../embedding/embedding.service';
+import { EmbeddingProvider } from '../embedding/embedding.provider';
 
 export interface SearchResult {
   id: string;
@@ -26,7 +26,7 @@ export class VectorSearchService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly embedding: EmbeddingService,
+    private readonly embedding: EmbeddingProvider,
   ) {}
 
   async searchKnowledge(
