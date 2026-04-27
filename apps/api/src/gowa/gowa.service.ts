@@ -18,8 +18,12 @@ export class GowaService {
     imageUrl: string,
     caption?: string,
   ): Promise<void> {
-    await this.simulateTyping(phone, caption || 'image');
-    await this.post('/send/image', { phone, image_url: imageUrl, caption });
+    await this.simulateTyping(phone, 'image');
+    await this.post('/send/image', {
+      phone,
+      image_url: imageUrl,
+      caption: caption ?? '',
+    });
   }
 
   async sendFile(

@@ -425,7 +425,7 @@ export class ConversationOrchestratorService {
       chatMessages.push({ role: 'system', content: mediaContext });
     }
 
-    const pendingImages: { phone: string; url: string; caption: string }[] = [];
+    const pendingImages: { phone: string; url: string }[] = [];
     let reply = await this.runAgentLoop(
       chatMessages,
       customer,
@@ -496,9 +496,7 @@ export class ConversationOrchestratorService {
 
     if (images.length > 0) {
       const img = images[0];
-      const caption =
-        img.title + (img.description ? `\n${img.description}` : '');
-      await this.gowa.sendImage(phone, img.imageUrl, caption);
+      await this.gowa.sendImage(phone, img.imageUrl);
     }
   }
 
@@ -651,7 +649,7 @@ export class ConversationOrchestratorService {
     conversationId: string,
     phone: string,
     reply: string,
-    pendingImages: { phone: string; url: string; caption: string }[],
+    pendingImages: { phone: string; url: string }[],
   ): Promise<void> {
     if (!reply || !reply.trim()) {
       this.logger.warn('Agent loop returned empty reply, sending fallback');
@@ -664,7 +662,7 @@ export class ConversationOrchestratorService {
     await this.gowa.sendText(phone, reply);
 
     for (const img of pendingImages) {
-      await this.gowa.sendImage(img.phone, img.url, img.caption);
+      await this.gowa.sendImage(img.phone, img.url);
     }
   }
 
@@ -673,7 +671,7 @@ export class ConversationOrchestratorService {
     customer: any,
     conversation: any,
     maxIterations = 8,
-    pendingImages: { phone: string; url: string; caption: string }[] = [],
+    pendingImages: { phone: string; url: string }[] = [],
   ): Promise<string> {
     let lastToolResult: string | null = null;
 
@@ -992,7 +990,7 @@ export class ConversationOrchestratorService {
     args: Record<string, any>,
     customer: any,
     conversation: any,
-    pendingImages: { phone: string; url: string; caption?: string }[] = [],
+    pendingImages: { phone: string; url: string }[] = [],
   ): Promise<string> {
     // Strip "default_api." prefix that some LLMs add
     const toolName = name.replace(/^default_api\./, '');
