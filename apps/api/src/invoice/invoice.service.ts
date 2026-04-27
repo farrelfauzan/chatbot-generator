@@ -34,22 +34,24 @@ export class InvoiceService {
    * Generate a PDF invoice for a paid order, upload to S3, and return the URL.
    */
   async generateInvoice(order: InvoiceOrderData): Promise<{
+    buffer: Buffer;
     url: string;
     key: string;
     filename: string;
   }> {
     const company = await this.settings.getCompanyInfo();
     const pdfBytes = await this.buildPdf(order, company);
+    const buffer = Buffer.from(pdfBytes);
 
     const filename = `invoice-${order.orderNumber}.pdf`;
     const { key, url } = await this.s3.upload(
-      Buffer.from(pdfBytes),
+      buffer,
       filename,
       'application/pdf',
     );
 
     this.logger.log(`Invoice generated: ${filename} → ${url}`);
-    return { url, key, filename };
+    return { buffer, url, key, filename };
   }
 
   private async buildPdf(

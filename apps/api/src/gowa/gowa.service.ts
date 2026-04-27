@@ -22,17 +22,33 @@ export class GowaService {
     await this.post('/send/image', { phone, image_url: imageUrl, caption });
   }
 
-  async sendDocument(
-    phone: string,
-    documentUrl: string,
-    filename: string,
-  ): Promise<void> {
-    await this.simulateTyping(phone, filename);
-    await this.post('/send/document', {
-      phone,
-      document_url: documentUrl,
-      filename,
+  async sendFile(phone: string, file: Buffer, caption?: string): Promise<void> {
+    await this.simulateTyping(phone, caption || 'file');
+    const url = `${this.baseUrl}/send/file`;
+
+    const formData = new FormData();
+    formData.append('phone', phone);
+    formData.append('file', new Blob([new Uint8Array(file)]), 'invoice.pdf');
+    if (caption) formData.append('caption', caption);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...(this.deviceId ? { 'X-Device-Id': this.deviceId } : {}),
+        ...(this.basicAuth
+          ? {
+              Authorization: `Basic ${Buffer.from(this.basicAuth).toString('base64')}`,
+            }
+          : {}),
+      },
+      body: formData,
     });
+
+    if (!res.ok) {
+      const text = await res.text();
+      this.logger.error(`GoWa sendFile error ${res.status}: ${text}`);
+      throw new Error(`GoWa sendFile failed: ${res.status}`);
+    }
   }
 
   /**

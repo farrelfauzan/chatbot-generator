@@ -171,12 +171,12 @@ export class DokuWebhookController {
           customerPhone: order.customer.phoneNumber,
         };
 
-        const { url, filename } =
+        const { buffer, filename } =
           await this.invoice.generateInvoice(invoiceData);
-        await this.gowa.sendDocument(
+        await this.gowa.sendFile(
           order.customer.phoneNumber,
-          url,
-          filename,
+          buffer,
+          `Invoice ${order.orderNumber}`,
         );
         this.logger.log(
           `Invoice PDF sent to ${order.customer.phoneNumber}: ${filename}`,
