@@ -38,7 +38,7 @@ export class GowaService {
     const formData = new FormData();
     formData.append('phone', phone);
     formData.append('file', new Blob([new Uint8Array(file)]), filename);
-    if (caption) formData.append('caption', caption);
+    if (caption) formData.append('caption', '');
 
     const res = await fetch(url, {
       method: 'POST',
