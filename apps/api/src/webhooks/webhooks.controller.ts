@@ -9,7 +9,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import Redis from 'ioredis';
 import { GowaWebhookGuard } from './gowa-webhook.guard';
-import { ConversationOrchestratorService } from '../conversations/conversation-orchestrator.service';
+import { MessageBufferService } from './message-buffer.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type {
   GowaWebhookPayload,
@@ -23,7 +23,7 @@ export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
   constructor(
-    private readonly orchestrator: ConversationOrchestratorService,
+    private readonly messageBuffer: MessageBufferService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -128,23 +128,12 @@ export class WebhooksController {
       }
     }
 
-    // Per-phone concurrency lock — only one message processed at a time per phone
-    const lockKey = `lock:phone:${phone}`;
-    const acquired = await this.redis.set(lockKey, '1', 'EX', 120, 'NX');
-    if (!acquired) {
-      this.logger.warn(`Phone ${phone} already being processed, skipping`);
-      return { status: 'ok', skipped: true, reason: 'concurrent' };
-    }
-
-    try {
-      this.logger.log(
-        `Inbound from ${phone}: ${(message || '[media]').substring(0, 80)}`,
-      );
-      await this.orchestrator.handleInboundMessage(normalized);
-      return { status: 'ok' };
-    } finally {
-      await this.redis.del(lockKey);
-    }
+    // Buffer the message for debounced processing
+    this.logger.log(
+      `Inbound from ${phone}: ${(message || '[media]').substring(0, 80)}`,
+    );
+    await this.messageBuffer.bufferMessage(normalized);
+    return { status: 'ok', buffered: true };
   }
 
   private handleMessageAck(payload: Record<string, unknown>) {
