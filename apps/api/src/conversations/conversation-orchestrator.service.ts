@@ -286,6 +286,44 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'handle_complaint',
+      description:
+        'Handle order complaints from customer. If the customer provides specific complaint details (e.g. "dus penyok", "salah ukuran", "belum sampai"), call this tool IMMEDIATELY with the complaint. If they only say they want to complain without details (e.g. "mau komplain", "ada masalah"), ask what the issue is first, then call this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          complaint: {
+            type: 'string',
+            description:
+              'The customer complaint details (e.g. "dus penyok saat diterima", "ukuran tidak sesuai", "pesanan belum sampai").',
+          },
+        },
+        required: ['complaint'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'handle_bargain',
+      description:
+        'Handle price bargaining/negotiation from customer. If the customer provides a specific price (e.g. "bisa 4 juta?", "3.5 jt ya", "harga 2 juta bisa?"), call this tool IMMEDIATELY with their requested_price. If they only express bargaining intent without a price (e.g. "bisa kurang?", "diskon dong", "nego dong"), ask them how much they want first, then call this tool once they answer.',
+      parameters: {
+        type: 'object',
+        properties: {
+          requested_price: {
+            type: 'number',
+            description:
+              'The price the customer wants to pay (in IDR). This is the bargained/requested price from the customer.',
+          },
+        },
+        required: ['requested_price'],
+      },
+    },
+  },
 ];
 
 const ORCHESTRATOR_SLUG = 'conversation-orchestrator';
@@ -530,6 +568,13 @@ export class ConversationOrchestratorService {
           'If the customer asks for the payment link again, or says "bayar", or asks how to pay, call get_payment_info to generate/resend the link.',
           'If the customer wants to cancel or change the order, respond naturally.',
           'Do NOT ask "Lanjut ke pembayaran?" — the payment link was already provided.\n',
+        ].join('\n');
+      case 'bargaining':
+        return [
+          '\n⚠️ CONVERSATION STAGE: bargaining',
+          'The customer has attempted to bargain/negotiate the price.',
+          'The bargain was already processed. If they ask again, you can re-explain that the price is fixed (for orders under 5 juta) or that admin will follow up (for orders 5 juta+).',
+          'If the customer wants to continue ordering at the original price, proceed normally.\n',
         ].join('\n');
       default:
         return '';
@@ -811,6 +856,8 @@ export class ConversationOrchestratorService {
             'remove_from_cart',
             'get_payment_info',
             'escalate_to_admin',
+            'handle_bargain',
+            'handle_complaint',
           ];
           if (DIRECT_RELAY_TOOLS.includes(fnName)) {
             return result;
@@ -1513,6 +1560,68 @@ export class ConversationOrchestratorService {
           );
 
           return 'Baik kak, kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
+        }
+
+        case 'handle_bargain': {
+          const requestedPrice = Number(args.requested_price);
+          const customerName = customer.name || 'kakak';
+
+          // Get current cart total to determine bargain eligibility
+          const cart = await this.chatSession.getCart(customer.phoneNumber);
+          let cartTotal = 0;
+          for (const item of cart) {
+            cartTotal += item.unitPrice * item.quantity;
+          }
+
+          // If cart is empty, check latest order total
+          if (cart.length === 0) {
+            const latestOrder = await this.orders.findLatestByCustomerId(
+              customer.id,
+            );
+            if (latestOrder) {
+              cartTotal = Number(latestOrder.totalAmount);
+            }
+          }
+
+          // Below IDR 5 million — reject bargain
+          if (cartTotal < 5_000_000) {
+            await this.conversations.update(conversation.id, {
+              stage: 'bargaining',
+            });
+            return `Maaf ka ${customerName}, harga segitu kita belum bisa 🙏`;
+          }
+
+          // IDR 5 million or above — escalate to admin for negotiation
+          await this.conversations.update(conversation.id, {
+            stage: 'bargaining',
+          });
+          const reason = `Customer nego harga. Total pesanan: ${this.formatRupiah(cartTotal)}, harga diminta: ${this.formatRupiah(requestedPrice)}`;
+          await this.gowa.sendText(
+            PIC_PHONE,
+            `⚠️ Customer ${customerName} (${customer.phoneNumber}) minta nego harga.\nTotal: ${this.formatRupiah(cartTotal)}\nHarga diminta: ${this.formatRupiah(requestedPrice)}\nAlasan: ${reason}`,
+          );
+
+          return 'Baik kak, untuk nego harga kami sambungkan dengan tim ya. Nanti dibalas secepatnya 🙏';
+        }
+
+        case 'handle_complaint': {
+          const complaint = args.complaint || 'Komplain pesanan';
+          const customerName = customer.name || 'Customer';
+
+          // Get latest order info for context
+          const latestOrder = await this.orders.findLatestByCustomerId(
+            customer.id,
+          );
+          const orderInfo = latestOrder
+            ? `\nNo. Pesanan: ${latestOrder.orderNumber}, Status: ${latestOrder.status}, Total: ${this.formatRupiah(Number(latestOrder.totalAmount))}`
+            : '\nTidak ada pesanan tercatat.';
+
+          await this.gowa.sendText(
+            PIC_PHONE,
+            `🚨 KOMPLAIN dari ${customerName} (${customer.phoneNumber})\nKeluhan: ${complaint}${orderInfo}`,
+          );
+
+          return `Terima kasih sudah menyampaikan keluhannya kak 🙏\nKami sudah teruskan ke tim kami. Admin akan segera menghubungi kakak untuk menyelesaikan masalah ini ya.`;
         }
 
         default:
