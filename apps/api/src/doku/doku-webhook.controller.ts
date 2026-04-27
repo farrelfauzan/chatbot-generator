@@ -13,6 +13,10 @@ import { OrdersService } from '../orders/orders.service';
 import { GowaService } from '../gowa/gowa.service';
 import { PrismaService } from '../database/prisma.service';
 import { ChatSessionService } from '../chat-session/chat-session.service';
+import {
+  InvoiceService,
+  type InvoiceOrderData,
+} from '../invoice/invoice.service';
 
 /**
  * Receives DOKU payment notification callbacks (Non-SNAP format).
@@ -31,6 +35,7 @@ export class DokuWebhookController {
     private readonly gowa: GowaService,
     private readonly prisma: PrismaService,
     private readonly chatSession: ChatSessionService,
+    private readonly invoice: InvoiceService,
   ) {}
 
   /**
@@ -94,7 +99,7 @@ export class DokuWebhookController {
     // 2. Find the order by invoice_number (= orderNumber)
     const order = await this.prisma.client.order.findUnique({
       where: { orderNumber: invoiceNumber },
-      include: { customer: true },
+      include: { customer: true, items: true },
     });
 
     if (!order) {
@@ -143,6 +148,42 @@ export class DokuWebhookController {
       } catch (err) {
         this.logger.error(
           `Failed to send payment confirmation: ${(err as Error).message}`,
+        );
+      }
+
+      // 5. Generate and send PDF invoice
+      try {
+        const invoiceData: InvoiceOrderData = {
+          orderNumber: order.orderNumber,
+          paidAt: new Date(),
+          items: order.items.map((item) => ({
+            productNameSnapshot: item.productNameSnapshot,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            lineTotal: Number(item.lineTotal),
+          })),
+          subtotal: Number(order.subtotal),
+          discountAmount: Number(order.discountAmount),
+          shippingAmount: Number(order.shippingAmount),
+          taxAmount: Number(order.taxAmount),
+          totalAmount: Number(order.totalAmount),
+          customerName: order.customer.name || 'Customer',
+          customerPhone: order.customer.phoneNumber,
+        };
+
+        const { url, filename } =
+          await this.invoice.generateInvoice(invoiceData);
+        await this.gowa.sendDocument(
+          order.customer.phoneNumber,
+          url,
+          filename,
+        );
+        this.logger.log(
+          `Invoice PDF sent to ${order.customer.phoneNumber}: ${filename}`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `Failed to generate/send invoice: ${(err as Error).message}`,
         );
       }
 
