@@ -45,7 +45,7 @@ export class DokuService {
         payment_due_date: params.expiryMinutes ?? 60,
       },
       customer: {
-        name: params.customerName,
+        name: this.sanitizeName(params.customerName, params.customerPhone),
         email: params.customerEmail || undefined,
         phone: params.customerPhone,
       },
@@ -193,6 +193,14 @@ export class DokuService {
 
   private sha256Base64(data: string): string {
     return createHash('sha256').update(data, 'utf8').digest('base64');
+  }
+
+  /** Strip special characters that DOKU rejects; keep letters, numbers, spaces, dots, hyphens. */
+  private sanitizeName(name: string, phone?: string): string {
+    const cleaned = name.replace(/[^a-zA-Z0-9\s.\-]/g, '').trim();
+    if (cleaned) return cleaned;
+    const suffix = phone ? phone.slice(-6) : randomUUID().slice(0, 6);
+    return `Customer-${suffix}`;
   }
 
   private async safeFetch(
