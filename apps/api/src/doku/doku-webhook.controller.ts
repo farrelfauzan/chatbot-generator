@@ -109,6 +109,14 @@ export class DokuWebhookController {
 
     // 3. Handle payment status
     if (txStatus === 'SUCCESS') {
+      // Idempotency guard — skip if already paid (DOKU may send duplicate webhooks)
+      if (order.paymentStatus === 'paid') {
+        this.logger.warn(
+          `Duplicate DOKU webhook for ${invoiceNumber} — already paid, skipping`,
+        );
+        return { status: 'ok', duplicate: true };
+      }
+
       // Update order payment status
       await this.prisma.client.order.update({
         where: { id: order.id },
