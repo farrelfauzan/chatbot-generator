@@ -22,6 +22,7 @@ import { CatalogImagesModule } from './catalog-images/catalog-images.module';
 import { EmbeddingModule } from './embedding/embedding.module';
 import { VectorSearchModule } from './vector-search/vector-search.module';
 import { IngestionModule } from './ingestion/ingestion.module';
+import { InvoiceModule } from './invoice/invoice.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { IngestionModule } from './ingestion/ingestion.module';
     EmbeddingModule,
     VectorSearchModule,
     IngestionModule,
+    InvoiceModule,
     CatalogImagesModule,
     ConversationsModule,
     WebhooksModule,
