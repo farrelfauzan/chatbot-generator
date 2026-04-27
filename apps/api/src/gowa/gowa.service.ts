@@ -22,13 +22,18 @@ export class GowaService {
     await this.post('/send/image', { phone, image_url: imageUrl, caption });
   }
 
-  async sendFile(phone: string, file: Buffer, caption?: string): Promise<void> {
+  async sendFile(
+    phone: string,
+    file: Buffer,
+    filename: string,
+    caption?: string,
+  ): Promise<void> {
     await this.simulateTyping(phone, caption || 'file');
     const url = `${this.baseUrl}/send/file`;
 
     const formData = new FormData();
     formData.append('phone', phone);
-    formData.append('file', new Blob([new Uint8Array(file)]), 'invoice.pdf');
+    formData.append('file', new Blob([new Uint8Array(file)]), filename);
     if (caption) formData.append('caption', caption);
 
     const res = await fetch(url, {

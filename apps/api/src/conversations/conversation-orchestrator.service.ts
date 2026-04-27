@@ -992,7 +992,7 @@ export class ConversationOrchestratorService {
     args: Record<string, any>,
     customer: any,
     conversation: any,
-    pendingImages: { phone: string; url: string; caption: string }[] = [],
+    pendingImages: { phone: string; url: string; caption?: string }[] = [],
   ): Promise<string> {
     // Strip "default_api." prefix that some LLMs add
     const toolName = name.replace(/^default_api\./, '');
@@ -1077,9 +1077,6 @@ export class ConversationOrchestratorService {
           pendingImages.push({
             phone: customer.phoneNumber,
             url: firstImage.imageUrl,
-            caption:
-              firstImage.title +
-              (firstImage.description ? `\n${firstImage.description}` : ''),
           });
 
           return GREETING_TEMPLATE(customer.name || 'kakak');
@@ -1097,8 +1094,6 @@ export class ConversationOrchestratorService {
             pendingImages.push({
               phone: customer.phoneNumber,
               url: img.imageUrl,
-              caption:
-                img.title + (img.description ? `\n${img.description}` : ''),
             });
           }
 

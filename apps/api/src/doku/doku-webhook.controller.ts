@@ -184,6 +184,7 @@ export class DokuWebhookController {
         await this.gowa.sendFile(
           order.customer.phoneNumber,
           buffer,
+          `Invoice-${order.orderNumber}.pdf`,
           `Invoice ${order.orderNumber}`,
         );
         this.logger.log(
