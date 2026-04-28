@@ -308,6 +308,44 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'handle_urgent_delivery',
+      description:
+        'Handle urgent/fast delivery requests. If the customer specifies a timeframe (e.g. "besok", "hari ini", "2 hari"), call this tool IMMEDIATELY. If they only say they need it fast without a timeframe (e.g. "bisa cepat?", "butuh urgent"), ask how soon they need it first, then call this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          timeframe: {
+            type: 'string',
+            description:
+              'How fast the customer wants delivery (e.g. "besok", "hari ini", "2 hari", "minggu ini").',
+          },
+        },
+        required: ['timeframe'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'handle_stubborn_customer',
+      description:
+        "Escalate when a customer keeps asking the SAME thing over and over even though you already answered or declined it. Examples: asking for a product we don't sell after being told we don't have it, bargaining after price was already rejected, requesting a service we don't offer repeatedly. Call this when the customer has asked the SAME question/request 3+ times and you have already given a clear answer each time. Do NOT use on the first or second attempt — only on the 3rd+ repetition.",
+      parameters: {
+        type: 'object',
+        properties: {
+          issue: {
+            type: 'string',
+            description:
+              'Brief description of what the customer keeps insisting on (e.g. "terus menerus nego harga setelah ditolak", "minta model dus yang tidak tersedia berulang kali").',
+          },
+        },
+        required: ['issue'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'handle_bargain',
       description:
         'Handle price bargaining/negotiation from customer. If the customer provides a specific price (e.g. "bisa 4 juta?", "3.5 jt ya", "harga 2 juta bisa?"), call this tool IMMEDIATELY with their requested_price. If they only express bargaining intent without a price (e.g. "bisa kurang?", "diskon dong", "nego dong"), ask them how much they want first, then call this tool once they answer.',
@@ -856,6 +894,8 @@ export class ConversationOrchestratorService {
             'escalate_to_admin',
             'handle_bargain',
             'handle_complaint',
+            'handle_urgent_delivery',
+            'handle_stubborn_customer',
           ];
           if (DIRECT_RELAY_TOOLS.includes(fnName)) {
             return result;
@@ -1615,6 +1655,38 @@ export class ConversationOrchestratorService {
           );
 
           return `Terima kasih sudah menyampaikan keluhannya kak 🙏\nKami sudah teruskan ke tim kami. Admin akan segera menghubungi kakak untuk menyelesaikan masalah ini ya.`;
+        }
+
+        case 'handle_urgent_delivery': {
+          const timeframe = args.timeframe || 'secepatnya';
+          const customerName = customer.name || 'Customer';
+
+          const latestOrder = await this.orders.findLatestByCustomerId(
+            customer.id,
+          );
+          const orderInfo = latestOrder
+            ? `\nNo. Pesanan: ${latestOrder.orderNumber}, Total: ${this.formatRupiah(Number(latestOrder.totalAmount))}`
+            : '';
+
+          await this.gowa.sendText(
+            PIC_PHONE,
+            `🚀 PENGIRIMAN CEPAT\nCustomer ${customerName} (${customer.phoneNumber}) minta pengiriman cepat: *${timeframe}*${orderInfo}`,
+          );
+
+          return `Baik kak, permintaan pengiriman cepat (${timeframe}) sudah kami sampaikan ke tim 🙏\nAdmin akan segera menghubungi kakak untuk konfirmasi jadwal pengiriman ya.`;
+        }
+
+        case 'handle_stubborn_customer': {
+          const issue =
+            args.issue || 'Customer terus mengulangi permintaan yang sama';
+          const customerName = customer.name || 'Customer';
+
+          await this.gowa.sendText(
+            PIC_PHONE,
+            `⚠️ BUTUH BANTUAN ADMIN\nCustomer ${customerName} (${customer.phoneNumber}) butuh penanganan langsung.\nMasalah: ${issue}`,
+          );
+
+          return `Baik kak, kami sambungkan dengan admin untuk membantu lebih lanjut ya 🙏\nMohon ditunggu sebentar, admin akan segera menghubungi kakak.`;
         }
 
         default:
