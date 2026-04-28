@@ -17,6 +17,9 @@ export interface OrderCreateData {
   totalAmount: number;
   sablonSides?: number;
   sablonTotal?: number;
+  recipientName?: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
   items: Array<{
     productNameSnapshot: string;
     quantity: number;

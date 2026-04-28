@@ -65,6 +65,9 @@ export class OrderRepository implements IOrderRepository {
         totalAmount: data.totalAmount,
         sablonSides: data.sablonSides ?? 0,
         sablonTotal: data.sablonTotal ?? 0,
+        recipientName: data.recipientName,
+        recipientPhone: data.recipientPhone,
+        recipientAddress: data.recipientAddress,
         items: {
           create: data.items.map((item) => ({
             productNameSnapshot: item.productNameSnapshot,

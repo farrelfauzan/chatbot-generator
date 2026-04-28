@@ -70,6 +70,9 @@ export class OrdersService {
       shippingAmount,
       taxAmount,
       totalAmount,
+      recipientName: input.recipientName,
+      recipientPhone: input.recipientPhone,
+      recipientAddress: input.recipientAddress,
       items,
     });
   }
