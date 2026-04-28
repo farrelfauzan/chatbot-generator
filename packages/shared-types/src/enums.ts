@@ -9,6 +9,7 @@ export const CONVERSATION_STAGES = [
   "pricing",
   "collecting_items",
   "order_summary",
+  "collecting_recipient",
   "order_confirm",
   "bargaining",
   "invoiced",

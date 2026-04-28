@@ -23,6 +23,9 @@ export const createOrderSchema = z.object({
   discountAmount: z.number().min(0).default(0),
   shippingAmount: z.number().min(0).default(0),
   taxAmount: z.number().min(0).default(0),
+  recipientName: z.string().optional(),
+  recipientPhone: z.string().optional(),
+  recipientAddress: z.string().optional(),
 });
 
 export type CreateOrderInput = z.input<typeof createOrderSchema>;
