@@ -204,10 +204,36 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'collect_recipient_info',
+      description:
+        'Start collecting recipient/shipping info before placing the order. Call this when the customer confirms the order summary (e.g. "ya", "ok", "lanjut"). This transitions to recipient info collection. Do NOT call confirm_order directly — always collect recipient info first.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'confirm_order',
       description:
-        'Confirm and place the order from all items currently in the cart. ONLY call this when the customer explicitly confirms they want to proceed with the order after seeing the order summary. This creates the actual order.',
-      parameters: { type: 'object', properties: {} },
+        'Confirm and place the order with recipient/shipping details. ONLY call this after you have collected ALL three: recipient name, phone number, and shipping address. All three fields are REQUIRED.',
+      parameters: {
+        type: 'object',
+        properties: {
+          recipient_name: {
+            type: 'string',
+            description: 'Recipient name (nama penerima).',
+          },
+          recipient_phone: {
+            type: 'string',
+            description: 'Recipient phone number (no HP penerima).',
+          },
+          recipient_address: {
+            type: 'string',
+            description: 'Full shipping address (alamat lengkap pengiriman).',
+          },
+        },
+        required: ['recipient_name', 'recipient_phone', 'recipient_address'],
+      },
     },
   },
   {
@@ -372,7 +398,7 @@ Respond in Indonesian. For ANY customer question, ALWAYS call search_knowledge f
 const PIC_PHONE = '6287822992838';
 
 const GREETING_TEMPLATE = (name: string) =>
-  `Halo kak ${name} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\nAda yang bisa dibantu kak? 😊`;
+  `Halo kak ${name} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\n🚚 *FREE ONGKIR* se-Jabodetabek!\n\nAda yang bisa dibantu kak? 😊`;
 
 @Injectable()
 export class ConversationOrchestratorService {
@@ -593,9 +619,18 @@ export class ConversationOrchestratorService {
         return [
           '\n⚠️ CONVERSATION STAGE: order_summary',
           'The customer has been shown the order summary and is deciding whether to confirm.',
-          'CRITICAL: If the customer says ANYTHING affirmative (e.g. "ya", "ok", "oke", "benar", "betul", "lanjut", "order", "iya", "yoi", "yup", "sip", "gas", "jadi", "deal", "siap", "boleh"), you MUST call confirm_order IMMEDIATELY. Do NOT just reply with text — you MUST use the tool.',
+          'CRITICAL: If the customer says ANYTHING affirmative (e.g. "ya", "ok", "oke", "benar", "betul", "lanjut", "order", "iya", "yoi", "yup", "sip", "gas", "jadi", "deal", "siap", "boleh"), you MUST call collect_recipient_info IMMEDIATELY. Do NOT call confirm_order directly.',
           'If the customer wants to change items, help them modify the cart (add_to_cart / remove_from_cart / update_cart_item).',
           'If the customer wants to cancel, use cancel_order.\n',
+        ].join('\n');
+      case 'collecting_recipient':
+        return [
+          '\n⚠️ CONVERSATION STAGE: collecting_recipient',
+          'You are collecting shipping/recipient info before placing the order.',
+          'You need THREE things: (1) Nama penerima, (2) No HP penerima, (3) Alamat lengkap pengiriman.',
+          'If the customer provides ALL three in one message, call confirm_order IMMEDIATELY with all three fields.',
+          'If the customer provides partial info, acknowledge what you have and ask for the missing fields.',
+          'Do NOT call confirm_order until you have ALL three fields.\n',
         ].join('\n');
       case 'order_confirm':
         return [
@@ -767,7 +802,7 @@ export class ConversationOrchestratorService {
           if (isConfirming) {
             toolChoice = {
               type: 'function',
-              function: { name: 'confirm_order' },
+              function: { name: 'collect_recipient_info' },
             };
           } else {
             toolChoice = 'required';
@@ -815,6 +850,9 @@ export class ConversationOrchestratorService {
           }
         } else if (stage === 'order_confirm') {
           // Customer has confirmed order, let LLM pick tool (get_payment_info, etc.)
+          toolChoice = 'required';
+        } else if (stage === 'collecting_recipient') {
+          // Customer is providing recipient info, let LLM decide (confirm_order when all info collected)
           toolChoice = 'required';
         } else {
           // For general questions, force search_knowledge specifically
@@ -896,6 +934,7 @@ export class ConversationOrchestratorService {
             'handle_complaint',
             'handle_urgent_delivery',
             'handle_stubborn_customer',
+            'collect_recipient_info',
           ];
           if (DIRECT_RELAY_TOOLS.includes(fnName)) {
             return result;
@@ -1338,7 +1377,23 @@ export class ConversationOrchestratorService {
           return `✏️ Item #${itemNum} diperbarui${changes.length > 0 ? ' (' + changes.join(', ') + ')' : ''}:\n${line}\n\nAda lagi kak?`;
         }
 
+        case 'collect_recipient_info': {
+          await this.conversations.update(conversation.id, {
+            stage: 'collecting_recipient',
+          });
+
+          return '📋 Sebelum order dikonfirmasi, kami butuh data pengiriman ya kak:\n\n1. *Nama penerima*\n2. *No HP penerima*\n3. *Alamat lengkap pengiriman*\n\nSilakan kirim datanya kak 😊';
+        }
+
         case 'confirm_order': {
+          const recipientName = args.recipient_name;
+          const recipientPhone = args.recipient_phone;
+          const recipientAddress = args.recipient_address;
+
+          if (!recipientName || !recipientPhone || !recipientAddress) {
+            return 'Data pengiriman belum lengkap kak. Mohon kirimkan:\n1. Nama penerima\n2. No HP penerima\n3. Alamat lengkap pengiriman';
+          }
+
           const cart = await this.chatSession.getCart(customer.phoneNumber);
           if (cart.length === 0) {
             return 'Keranjang kosong. Belum ada item untuk di-order.';
@@ -1379,6 +1434,9 @@ export class ConversationOrchestratorService {
             customerId: customer.id,
             conversationId: conversation.id,
             items: orderItems,
+            recipientName,
+            recipientPhone,
+            recipientAddress,
           });
 
           // Link any uploaded design files to this order
@@ -1427,6 +1485,11 @@ export class ConversationOrchestratorService {
           return [
             '✅ *Pesanan dibuat!*',
             `No: *${order.orderNumber}*`,
+            '',
+            '📦 *Data Pengiriman:*',
+            `Nama: ${recipientName}`,
+            `HP: ${recipientPhone}`,
+            `Alamat: ${recipientAddress}`,
             '',
             ...itemLines,
             '',
