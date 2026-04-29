@@ -1378,6 +1378,24 @@ export class ConversationOrchestratorService {
         }
 
         case 'collect_recipient_info': {
+          // Check minimum order BEFORE asking for recipient info
+          const cartCheck = await this.chatSession.getCart(
+            customer.phoneNumber,
+          );
+          if (cartCheck.length === 0) {
+            return '🛒 Keranjang masih kosong. Mau pesan dus apa kak?';
+          }
+          let checkTotal = 0;
+          for (const item of cartCheck) {
+            checkTotal += item.unitPrice * item.quantity;
+          }
+          if (checkTotal < 300000) {
+            await this.conversations.update(conversation.id, {
+              stage: 'collecting_items',
+            });
+            return `Maaf kak, minimal order kami Rp 300.000 ya.\nTotal saat ini: ${this.formatRupiah(checkTotal)}.\nSilakan tambah item lagi kak 😊`;
+          }
+
           await this.conversations.update(conversation.id, {
             stage: 'collecting_recipient',
           });
@@ -1423,11 +1441,6 @@ export class ConversationOrchestratorService {
               line += `\n  (sudah termasuk sablon ${item.sablonSides} sisi)`;
             }
             itemLines.push(line);
-          }
-
-          // Enforce minimum order Rp 300.000
-          if (grandTotal < 300000) {
-            return `Maaf kak, minimal order kami Rp 300.000 ya.\nTotal saat ini: ${this.formatRupiah(grandTotal)}.\nSilakan tambah item lagi kak 😊`;
           }
 
           const order = await this.orders.create({
