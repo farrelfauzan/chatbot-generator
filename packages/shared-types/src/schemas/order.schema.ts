@@ -63,6 +63,8 @@ export const orderResponseSchema = z.object({
   shippingAmount: z.number(),
   taxAmount: z.number(),
   totalAmount: z.number(),
+  paymentStatus: z.string().nullable().optional(),
+  paidAt: z.coerce.date().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   items: z.array(orderItemResponseSchema).optional(),

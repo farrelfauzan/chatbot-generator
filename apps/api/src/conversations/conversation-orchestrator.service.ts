@@ -249,7 +249,8 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'get_order_status',
-      description: 'Get the latest order status for the current customer.',
+      description:
+        'Get the latest order status and PAYMENT STATUS for the current customer. MUST use this when customer claims they have paid ("udah bayar", "sudah transfer", "sudah dibayar") to verify the actual payment status from the database. Also use for general order status inquiries.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -471,9 +472,46 @@ export class ConversationOrchestratorService {
     }
 
     // First greeting — deterministic reply + catalog image
+    // But only if the message is a simple greeting (no actual product request)
     if (conversation.stage === 'greeting' && !priorConversationId) {
+      const msgLower = payload.message?.toLowerCase().trim() ?? '';
+      const GREETING_ONLY_WORDS = [
+        'halo',
+        'hai',
+        'hi',
+        'hey',
+        'hello',
+        'pagi',
+        'siang',
+        'sore',
+        'malam',
+        'selamat pagi',
+        'selamat siang',
+        'selamat sore',
+        'selamat malam',
+        'assalamualaikum',
+        'p',
+        'min',
+        'kak',
+        'bang',
+        'mas',
+        'mba',
+        'mbak',
+        'om',
+        'tante',
+      ];
+      const isGreetingOnly = GREETING_ONLY_WORDS.some(
+        (w) => msgLower === w || msgLower === w + '!' || msgLower === w + '.',
+      );
+
+      if (isGreetingOnly) {
+        await this.handleGreeting(conversation, customer, payload.phone);
+        return;
+      }
+
+      // Customer sent a real request as first message — send greeting + process via LLM
       await this.handleGreeting(conversation, customer, payload.phone);
-      return;
+      // Don't return — fall through to LLM to also handle the actual request
     }
 
     // Build LLM context and run agent loop
@@ -1257,7 +1295,7 @@ export class ConversationOrchestratorService {
             line += ` (termasuk sablon ${sablonSides} sisi)`;
           }
 
-          return `✅ Ditambahkan:\n${line}\n\n🛒 ${cart.length} item di keranjang. Ada lagi kak?`;
+          return `✅ ${cart.length} barang di keranjang. Ada lagi kak, atau mau langsung order?`;
         }
 
         case 'view_cart': {
@@ -1564,13 +1602,22 @@ export class ConversationOrchestratorService {
           if (!order) {
             return 'Belum ada pesanan yang tercatat.';
           }
+
+          const paymentStatus = (order as any).paymentStatus ?? 'pending';
+          const statusLabels: Record<string, string> = {
+            pending: '⏳ Belum dibayar',
+            paid: '✅ Sudah dibayar',
+            failed: '❌ Gagal',
+            expired: '⏰ Expired',
+          };
+          const paymentLabel = statusLabels[paymentStatus] ?? paymentStatus;
+
           return [
             '📦 *Status Pesanan*',
             `No. Pesanan: *${order.orderNumber}*`,
             `Status: ${order.status}`,
+            `Pembayaran: ${paymentLabel}`,
             `Total: ${this.formatRupiah(Number(order.totalAmount))}`,
-            '',
-            'Pesanan sedang kami proses ya kak 🙏',
           ].join('\n');
         }
 

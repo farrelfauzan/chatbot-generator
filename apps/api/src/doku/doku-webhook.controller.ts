@@ -177,6 +177,9 @@ export class DokuWebhookController {
           totalAmount: Number(order.totalAmount),
           customerName: order.customer.name || 'Customer',
           customerPhone: order.customer.phoneNumber,
+          recipientName: order.recipientName ?? undefined,
+          recipientPhone: order.recipientPhone ?? undefined,
+          recipientAddress: order.recipientAddress ?? undefined,
         };
 
         const { buffer, filename } =

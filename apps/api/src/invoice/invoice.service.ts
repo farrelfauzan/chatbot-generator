@@ -19,6 +19,9 @@ export interface InvoiceOrderData {
   totalAmount: number;
   customerName: string;
   customerPhone: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
 }
 
 @Injectable()
@@ -147,6 +150,17 @@ export class InvoiceService {
       ['Customer', order.customerName],
       ['Telepon', order.customerPhone],
     ];
+
+    // Add recipient/shipping info if available
+    if (order.recipientName) {
+      infoLines.push(['Penerima', order.recipientName]);
+    }
+    if (order.recipientPhone) {
+      infoLines.push(['HP Penerima', order.recipientPhone]);
+    }
+    if (order.recipientAddress) {
+      infoLines.push(['Alamat Kirim', order.recipientAddress]);
+    }
 
     for (const [label, value] of infoLines) {
       page.drawText(`${label}:`, {
