@@ -331,7 +331,7 @@ const KNOWLEDGE_CHUNKS = [
     sourceType: "faq_knowledge",
     title: "FAQ: Diskon dan Promo",
     content:
-      "Q: Ada diskon/promo?\nA: Untuk saat ini belum ada promo khusus kak. Tapi untuk pemesanan dalam jumlah besar (di atas 1000 pcs), bisa diskusikan langsung dengan tim kami untuk harga spesial ya. Silakan hubungi admin untuk negosiasi.",
+      "Q: Ada diskon/promo?\nA: Untuk saat ini belum ada promo khusus kak. Tapi untuk pemesanan dalam jumlah besar (di atas 1000 pcs), bisa cek langsung dengan tim kami untuk harga spesial ya. Silakan hubungi admin untuk negosiasi.",
   },
 
   // ─── Additional Basic FAQs ─────────────────────────

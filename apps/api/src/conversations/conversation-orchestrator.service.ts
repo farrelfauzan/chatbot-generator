@@ -1587,7 +1587,7 @@ export class ConversationOrchestratorService {
               `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nPertanyaan: "${query}"`,
             );
 
-            return 'Tidak ditemukan informasi yang relevan di knowledge base. Balas customer: "Baik kak, kami diskusikan dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
+            return 'Tidak ditemukan informasi yang relevan di knowledge base. Balas customer: "Baik kak, kami cek dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
           }
 
           // If top result has low similarity, knowledge is likely irrelevant — also notify PIC
