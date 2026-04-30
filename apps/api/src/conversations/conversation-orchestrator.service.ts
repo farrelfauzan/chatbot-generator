@@ -922,6 +922,9 @@ export class ConversationOrchestratorService {
           const fnName = toolCall.function.name.replace(/^default_api\./, '');
           if (fnName === 'search_knowledge' || fnName === 'get_faq') {
             lastToolWasKnowledgeSearch = true;
+          } else if (fnName === 'calculate_price') {
+            // calculate_price results must be synthesized by LLM (especially for multi-size recommendations)
+            lastToolWasKnowledgeSearch = true;
           } else {
             lastToolWasKnowledgeSearch = false;
           }
@@ -1125,24 +1128,20 @@ export class ConversationOrchestratorService {
             doublewall: 'Doublewall',
           };
 
-          // material="all" → return comparison of all materials
+          // material="all" → return comparison of all materials (data-only, LLM composes final message)
           if (materialRaw === 'all') {
             const materials: Material[] = [
               'singlewall',
               'cflute',
               'doublewall',
             ];
-            const lines = [`📦 *Dus Indomie* ${p}×${l}×${t} cm\n`];
+            const lines = [`Dus Indomie ${p}×${l}×${t} cm:`];
             for (const mat of materials) {
               const price = calculatePrice(type, p, l, t, mat);
               lines.push(
-                `• *${materialLabels[mat]}*: ${this.formatRupiah(price)}/pcs`,
+                `${materialLabels[mat]}: ${this.formatRupiah(price)}/pcs`,
               );
             }
-            lines.push(
-              `\nSinglewall = paling tipis & ekonomis. C-Flute = lebih kokoh. Doublewall = paling tebal & kuat.`,
-            );
-            lines.push(`\nMau pesan yang mana kak? 😊`);
             return lines.join('\n');
           }
 
