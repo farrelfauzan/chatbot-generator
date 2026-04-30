@@ -59,9 +59,9 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
           },
           material: {
             type: 'string',
-            enum: ['singlewall', 'cflute', 'doublewall'],
+            enum: ['singlewall', 'cflute', 'doublewall', 'all'],
             description:
-              'Material type. Only for dus_baru. Ignored for dus_pizza. Default: singlewall.',
+              'Material type. Only for dus_baru. Ignored for dus_pizza. Use "all" to get a price comparison of ALL materials at once (recommended for use-case recommendations). Default: singlewall.',
           },
           quantity: {
             type: 'number',
@@ -1085,7 +1085,7 @@ export class ConversationOrchestratorService {
           const p = Number(args.panjang);
           const l = Number(args.lebar);
           const t = Number(args.tinggi);
-          const material = (args.material ?? 'singlewall') as Material;
+          const materialRaw = (args.material ?? 'singlewall') as string;
           const quantity = args.quantity ? Number(args.quantity) : undefined;
           const sablonSides = args.sablon_sides ? Number(args.sablon_sides) : 0;
 
@@ -1118,15 +1118,37 @@ export class ConversationOrchestratorService {
             return `🍕 *Dus Pizza* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(pricePerPcs)}/pcs*\n\nMau pesan berapa pcs kak?`;
           }
 
-          // dus_baru — default to singlewall if no specific material requested
-
-          // Specific material (defaults to singlewall)
-          const pricePerPcs = calculatePrice(type, p, l, t, material);
+          // dus_baru
           const materialLabels: Record<string, string> = {
             singlewall: 'Singlewall',
             cflute: 'C-Flute',
             doublewall: 'Doublewall',
           };
+
+          // material="all" → return comparison of all materials
+          if (materialRaw === 'all') {
+            const materials: Material[] = [
+              'singlewall',
+              'cflute',
+              'doublewall',
+            ];
+            const lines = [`📦 *Dus Indomie* ${p}×${l}×${t} cm\n`];
+            for (const mat of materials) {
+              const price = calculatePrice(type, p, l, t, mat);
+              lines.push(
+                `• *${materialLabels[mat]}*: ${this.formatRupiah(price)}/pcs`,
+              );
+            }
+            lines.push(
+              `\nSinglewall = paling tipis & ekonomis. C-Flute = lebih kokoh. Doublewall = paling tebal & kuat.`,
+            );
+            lines.push(`\nMau pesan yang mana kak? 😊`);
+            return lines.join('\n');
+          }
+
+          // Specific material (defaults to singlewall)
+          const material = materialRaw as Material;
+          const pricePerPcs = calculatePrice(type, p, l, t, material);
 
           if (quantity) {
             const totals = calculateTotal(pricePerPcs, quantity, sablonSides);

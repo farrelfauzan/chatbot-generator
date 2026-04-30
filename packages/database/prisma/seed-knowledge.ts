@@ -457,65 +457,73 @@ const KNOWLEDGE_CHUNKS = [
   },
 
   // ─── Use Case → Dimension Recommendations ────────
+
+  // General guide for ANY product (fallback when no specific recommendation exists)
+  {
+    sourceType: "faq_knowledge",
+    title: "Rekomendasi: Panduan umum estimasi ukuran dus untuk semua produk",
+    content:
+      "Q: Mau dus untuk [produk apapun] / rekomendasi ukuran\nA: PANDUAN UMUM estimasi ukuran dus berdasarkan kategori produk. Gunakan panduan ini kalau tidak ada rekomendasi spesifik:\n\nBarang kecil (aksesoris, perhiasan, HP case, charger, obat, sabun, lilin): 15-20 x 10-15 x 5-10 cm. Model: Dus Indomie RSC Singlewall.\nBarang sedang (buku, tas kecil, kotak makan, alat tulis, skincare set, mainan kecil): 25-30 x 20-25 x 10-15 cm. Model: Dus Indomie RSC Singlewall/C-Flute.\nBarang besar/berat (alat rumah tangga, rice cooker, blender, printer, speaker): 40-50 x 30-40 x 20-30 cm. Model: Dus Indomie RSC C-Flute/Doublewall.\nBarang datar/tipis (bingkai foto, cermin, lukisan, keyboard): Sesuaikan P x L, tinggi 5-10 cm. Model: Dus Indomie RSC C-Flute.\nMakanan (semua jenis): Model Dus Pizza Die-Cut lebih cocok karena tutup lepas.\n\nCara estimasi: ukuran produk + 1-2 cm setiap sisi untuk ruang gerak. Bulatkan ke angka kelipatan 5.\nBarang ringan (<3kg): Singlewall. Barang sedang (3-10kg): C-Flute. Barang berat (>10kg): Doublewall.\n\nSELALU berikan 2-3 opsi ukuran (S/M/L) dan panggil calculate_price untuk SETIAP ukuran dengan material=all.",
+  },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk baju / pakaian",
     content:
-      "Q: Mau dus untuk baju / pakaian / kaos / kemeja / jaket\nA: Rekomendasi ukuran dus untuk baju:\n- Kaos/T-shirt lipat: 30x20x10 cm (Dus Indomie RSC, Singlewall)\n- Kemeja/baju formal lipat: 35x25x10 cm (Dus Indomie RSC, Singlewall)\n- Jaket/sweater tebal: 40x30x15 cm (Dus Indomie RSC, C-Flute)\n- Paket baju banyak: 50x35x20 cm (Dus Indomie RSC, C-Flute)\nMaterial Singlewall cukup untuk baju ringan, C-Flute lebih kokoh untuk pengiriman jauh.\nLangsung hitungkan harga dengan calculate_price dan tawarkan beberapa opsi material.",
+      "Q: Mau dus untuk baju / pakaian / kaos / kemeja / jaket\nA: Rekomendasi ukuran dus untuk baju (model Dus Indomie RSC):\n- Ukuran S (kaos/T-shirt lipat): 30x20x10 cm\n- Ukuran M (kemeja/baju formal lipat): 35x25x10 cm\n- Ukuran L (jaket/sweater tebal): 40x30x15 cm\nMaterial Singlewall cukup untuk baju ringan, C-Flute lebih kokoh untuk pengiriman jauh.\nPanggil calculate_price untuk SETIAP ukuran dengan material=all agar customer bisa bandingkan.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk sepatu / sandal",
     content:
-      "Q: Mau dus untuk sepatu / sandal / sneakers\nA: Rekomendasi ukuran dus untuk sepatu:\n- Sandal/flat shoes: 30x20x12 cm (Dus Indomie RSC, Singlewall)\n- Sepatu dewasa standar: 35x25x15 cm (Dus Indomie RSC, Singlewall)\n- Sepatu boots/high-top: 38x28x18 cm (Dus Indomie RSC, C-Flute)\nLangsung hitungkan harga dengan calculate_price dan tawarkan opsi.",
+      "Q: Mau dus untuk sepatu / sandal / sneakers\nA: Rekomendasi ukuran dus untuk sepatu (model Dus Indomie RSC):\n- Ukuran S (sandal/flat shoes): 30x20x12 cm\n- Ukuran M (sepatu dewasa standar): 35x25x15 cm\n- Ukuran L (sepatu boots/high-top): 38x28x18 cm\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk makanan / kue / snack",
     content:
-      "Q: Mau dus untuk makanan / kue / snack / roti / cookies\nA: Rekomendasi ukuran dus untuk makanan:\n- Snack box / cookies: 20x15x8 cm (Dus Pizza Die-Cut)\n- Kue tart kecil: 25x25x12 cm (Dus Pizza Die-Cut)\n- Kue tart besar: 30x30x15 cm (Dus Pizza Die-Cut)\n- Nasi box / catering: 20x20x10 cm (Dus Pizza Die-Cut)\nModel Pizza (Die-Cut) lebih cocok karena tutup terpisah, mudah dibuka. Catatan: bahan corrugated kami belum food grade, sarankan pakai plastik/food wrap di dalam.\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk makanan / kue / snack / roti / cookies\nA: Rekomendasi ukuran dus untuk makanan (model Dus Pizza Die-Cut):\n- Ukuran S (snack box/cookies): 20x15x8 cm\n- Ukuran M (kue tart kecil/nasi box): 25x25x12 cm\n- Ukuran L (kue tart besar): 30x30x15 cm\nCatatan: bahan corrugated kami belum food grade, sarankan pakai plastik/food wrap di dalam.\nPanggil calculate_price untuk SETIAP ukuran (type=dus_pizza).",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk elektronik / gadget",
     content:
-      "Q: Mau dus untuk elektronik / HP / laptop / gadget / charger\nA: Rekomendasi ukuran dus untuk elektronik:\n- HP/smartphone + aksesoris: 20x15x8 cm (Dus Indomie RSC, C-Flute)\n- Tablet/iPad: 30x22x5 cm (Dus Indomie RSC, C-Flute)\n- Laptop: 40x30x8 cm (Dus Indomie RSC, Doublewall)\n- Aksesoris kecil (charger, earphone): 15x10x5 cm (Dus Indomie RSC, Singlewall)\nSarankan C-Flute atau Doublewall untuk proteksi lebih. Tambah bubble wrap di dalam.\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk elektronik / HP / laptop / gadget / charger\nA: Rekomendasi ukuran dus untuk elektronik (model Dus Indomie RSC):\n- Ukuran S (HP/smartphone + aksesoris): 20x15x8 cm\n- Ukuran M (tablet/iPad): 30x22x5 cm\n- Ukuran L (laptop): 40x30x8 cm\nSarankan C-Flute atau Doublewall untuk proteksi lebih. Tambah bubble wrap di dalam.\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk kosmetik / skincare",
     content:
-      "Q: Mau dus untuk kosmetik / skincare / parfum / makeup\nA: Rekomendasi ukuran dus untuk kosmetik:\n- Skincare set kecil (serum, cream): 20x15x10 cm (Dus Indomie RSC, Singlewall)\n- Paket kosmetik sedang: 25x20x12 cm (Dus Indomie RSC, C-Flute)\n- Hampers / gift set: 30x25x15 cm (Dus Indomie RSC, C-Flute)\nSinglewall cukup untuk skincare ringan, C-Flute lebih aman untuk botol kaca.\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk kosmetik / skincare / parfum / makeup\nA: Rekomendasi ukuran dus untuk kosmetik (model Dus Indomie RSC):\n- Ukuran S (skincare set kecil): 20x15x10 cm\n- Ukuran M (paket kosmetik sedang): 25x20x12 cm\n- Ukuran L (hampers/gift set): 30x25x15 cm\nSinglewall cukup untuk skincare ringan, C-Flute lebih aman untuk botol kaca.\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk mainan / toys",
     content:
-      "Q: Mau dus untuk mainan / toys / boneka / action figure\nA: Rekomendasi ukuran dus untuk mainan:\n- Mainan kecil / action figure: 20x15x10 cm (Dus Indomie RSC, Singlewall)\n- Mainan sedang: 30x25x15 cm (Dus Indomie RSC, C-Flute)\n- Boneka / mainan besar: 50x35x25 cm (Dus Indomie RSC, C-Flute)\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk mainan / toys / boneka / action figure\nA: Rekomendasi ukuran dus untuk mainan (model Dus Indomie RSC):\n- Ukuran S (mainan kecil/action figure): 20x15x10 cm\n- Ukuran M (mainan sedang): 30x25x15 cm\n- Ukuran L (boneka/mainan besar): 50x35x25 cm\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk botol / minuman",
     content:
-      "Q: Mau dus untuk botol / minuman / madu / sirup / jamu\nA: Rekomendasi ukuran dus untuk botol:\n- 6 botol kecil (250ml): 25x18x15 cm (Dus Indomie RSC, C-Flute)\n- 12 botol kecil: 30x25x15 cm (Dus Indomie RSC, Doublewall)\n- Botol besar (1L) x 6: 35x25x30 cm (Dus Indomie RSC, Doublewall)\nSarankan C-Flute/Doublewall karena botol berat. Tambah sekat kalau perlu.\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk botol / minuman / madu / sirup / jamu\nA: Rekomendasi ukuran dus untuk botol (model Dus Indomie RSC):\n- Ukuran S (6 botol kecil 250ml): 25x18x15 cm\n- Ukuran M (12 botol kecil): 30x25x15 cm\n- Ukuran L (6 botol besar 1L): 35x25x30 cm\nSarankan C-Flute/Doublewall karena botol berat.\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk pindahan / storage",
     content:
-      "Q: Mau dus untuk pindahan / packing / storage / arsip / dokumen\nA: Rekomendasi ukuran dus pindahan:\n- Arsip/dokumen A4: 40x30x25 cm (Dus Indomie RSC, C-Flute)\n- Barang rumah sedang: 50x40x30 cm (Dus Indomie RSC, C-Flute)\n- Barang berat/banyak: 60x40x40 cm (Dus Indomie RSC, Doublewall)\nSarankan Doublewall untuk barang berat (>10kg).\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk pindahan / packing / storage / arsip / dokumen\nA: Rekomendasi ukuran dus pindahan (model Dus Indomie RSC):\n- Ukuran S (arsip/dokumen A4): 40x30x25 cm\n- Ukuran M (barang rumah sedang): 50x40x30 cm\n- Ukuran L (barang berat/banyak): 60x40x40 cm\nSarankan Doublewall untuk barang berat (>10kg).\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk hampers / gift box",
     content:
-      "Q: Mau dus untuk hampers / gift box / parcel / kado / souvenir\nA: Rekomendasi ukuran dus hampers:\n- Hampers kecil: 20x20x15 cm (Dus Pizza Die-Cut atau Dus Indomie RSC)\n- Hampers sedang: 30x25x15 cm (Dus Indomie RSC, Singlewall)\n- Hampers besar: 40x30x20 cm (Dus Indomie RSC, C-Flute)\nDus Pizza cocok untuk hampers karena tutup lepas. Bisa tambah sablon logo untuk branding.\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk hampers / gift box / parcel / kado / souvenir\nA: Rekomendasi ukuran dus hampers:\n- Ukuran S (hampers kecil): 20x20x15 cm (Dus Pizza Die-Cut atau Dus Indomie RSC)\n- Ukuran M (hampers sedang): 30x25x15 cm (Dus Indomie RSC)\n- Ukuran L (hampers besar): 40x30x20 cm (Dus Indomie RSC)\nDus Pizza cocok untuk hampers karena tutup lepas. Bisa tambah sablon logo untuk branding.\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
   {
     sourceType: "faq_knowledge",
     title: "Rekomendasi: Dus untuk helm / topi",
     content:
-      "Q: Mau dus untuk helm / topi / headgear\nA: Rekomendasi ukuran dus untuk helm:\n- Topi/cap: 30x25x15 cm (Dus Indomie RSC, Singlewall)\n- Helm half-face: 30x28x25 cm (Dus Indomie RSC, C-Flute)\n- Helm full-face: 35x30x28 cm (Dus Indomie RSC, C-Flute)\nLangsung hitungkan harga dengan calculate_price.",
+      "Q: Mau dus untuk helm / topi / headgear\nA: Rekomendasi ukuran dus untuk helm (model Dus Indomie RSC):\n- Ukuran S (topi/cap): 30x25x15 cm\n- Ukuran M (helm half-face): 30x28x25 cm\n- Ukuran L (helm full-face): 35x30x28 cm\nPanggil calculate_price untuk SETIAP ukuran dengan material=all.",
   },
 ];
 
