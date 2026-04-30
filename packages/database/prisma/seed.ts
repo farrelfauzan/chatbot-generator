@@ -129,6 +129,60 @@ async function main() {
         "Mohon maaf kak, saat ini kami hanya menyediakan 2 model dus: Dus Indomie (RSC) dan Dus Pizza (die-cut). Kami belum bisa menyediakan model dus lainnya.",
       category: "products",
     },
+    {
+      question: "Apakah ready stock?",
+      answer:
+        "Kami punya lebih dari 1000+ ukuran ready stock kak. Untuk ukuran standar biasanya tersedia. Ready stock estimasi kirim 1-3 hari kerja. Kalau custom + sablon estimasi 5-7 hari kerja.",
+      category: "products",
+    },
+    {
+      question: "Ada minimal order berapa pcs?",
+      answer:
+        "Minimal order kami Rp 300.000. Tidak ada minimal pcs, yang penting total pembelian mencapai Rp 300.000. Kalau mau pakai sablon, minimal 200 pcs.",
+      category: "order",
+    },
+    {
+      question: "Berapa lama estimasi pengiriman ready stock vs custom?",
+      answer:
+        "Ready stock estimasi 1-3 hari kerja. Custom + sablon estimasi 5-7 hari kerja. Waktu dihitung sejak data final dan pembayaran diterima. Jadwal pengantaran diinfokan oleh tim pengiriman.",
+      category: "shipping",
+    },
+    {
+      question: "Bisa COD atau bayar di tempat?",
+      answer:
+        "Untuk saat ini pembayaran melalui link DOKU (QRIS, e-wallet, kartu kredit) dan wajib full payment sebelum produksi. Tidak ada sistem COD.",
+      category: "payment",
+    },
+    {
+      question: "Apa saja produk yang dijual?",
+      answer:
+        "Kami menyediakan kardus corrugated (kardus coklat) dengan 2 model: Dus Indomie (RSC) dan Dus Pizza (Die-Cut). Tersedia bahan Singlewall, C-Flute, dan Doublewall. Semua bisa custom ukuran dan sablon logo.",
+      category: "products",
+    },
+    {
+      question: "Apakah sudah termasuk ongkir?",
+      answer:
+        "Jakarta gratis ongkir minimal order Rp 300.000. Bodetabek gratis ongkir minimal order Rp 3 juta (di bawah itu flat Rp 100.000). Luar Jabodetabek via cargo, biaya menyesuaikan.",
+      category: "shipping",
+    },
+    {
+      question: "Bisa cetak full color?",
+      answer:
+        "Saat ini kami hanya melayani sablon (screen printing), rekomendasi 1 warna per sisi. Lebih dari 1 warna bisa tapi ada biaya tambahan. Cetak full color / digital print belum tersedia.",
+      category: "products",
+    },
+    {
+      question: "Apakah tahan air?",
+      answer:
+        "Kardus corrugated kami tidak waterproof. Kalau butuh proteksi dari air, bisa tambahkan plastik wrap atau lining di dalam dus.",
+      category: "products",
+    },
+    {
+      question: "Beda dus indomie dan dus pizza?",
+      answer:
+        "Dus Indomie (RSC) = kotak dengan tutup flap atas-bawah, cocok untuk barang umum. Dus Pizza (Die-Cut) = model tutup lepas, cocok untuk makanan/kue. Keduanya bisa custom ukuran.",
+      category: "products",
+    },
   ];
 
   await prisma.faqEntry.deleteMany({});
@@ -220,7 +274,14 @@ For ANY customer question — food grade, delivery, payment, cancellation, mater
 1. Call search_knowledge with the customer's question as query.
 2. Read the returned knowledge chunks.
 3. Compose a SHORT, friendly WhatsApp reply based on that knowledge.
-NEVER answer from your own memory. If search_knowledge returns nothing relevant, say: "Kita diskusikan dulu dengan tim ya kak, nanti kami hubungi kembali 😊"
+NEVER answer from your own memory or invent data/prices.
+
+═══ BE PROACTIVE — DO NOT ESCALATE TOO QUICKLY ═══
+- If search_knowledge returns results that are PARTIALLY relevant, USE them to construct a helpful answer. Combine information from multiple chunks if needed.
+- When a customer asks a FOLLOW-UP question about something you just mentioned (e.g. you mention a price → they ask "ada minimal?", or you mention a product → they ask "itu ready stock?"), try to answer using the knowledge you already retrieved or call search_knowledge again with a more specific query.
+- For basic questions about ready stock, minimum order, delivery time, payment, etc., you almost certainly have the answer in knowledge base. Try multiple search queries before giving up.
+- ONLY say "Kita diskusikan dulu dengan tim ya kak, nanti kami hubungi kembali 😊" when the question is TRULY outside your knowledge (e.g. very specific custom requests, technical specs not in the system, or questions about ongoing orders you have no data on).
+- After answering, ALWAYS guide the conversation forward. Ask a follow-up question like "Mau pesan berapa pcs kak?" or "Kakak butuh ukuran berapa?" to keep the sales momentum going.
 
 ═══ PRICING ═══
 - ALWAYS use calculate_price tool. NEVER make up prices.

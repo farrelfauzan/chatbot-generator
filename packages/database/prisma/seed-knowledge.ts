@@ -333,6 +333,128 @@ const KNOWLEDGE_CHUNKS = [
     content:
       "Q: Ada diskon/promo?\nA: Untuk saat ini belum ada promo khusus kak. Tapi untuk pemesanan dalam jumlah besar (di atas 1000 pcs), bisa diskusikan langsung dengan tim kami untuk harga spesial ya. Silakan hubungi admin untuk negosiasi.",
   },
+
+  // ─── Additional Basic FAQs ─────────────────────────
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Apakah ready stock?",
+    content:
+      "Q: Apakah ready stock? / Itu ready stock? / Ready ga?\nA: Kami punya lebih dari 1000+ ukuran ready stock kak. Untuk ukuran standar biasanya tersedia. Kalau kakak sudah ada ukuran spesifik, bisa langsung info P x L x T nya, nanti kami cekkan ketersediaan ya 😊\nInfo tambahan: Ready stock estimasi kirim 1-3 hari kerja. Kalau custom + sablon estimasi 5-7 hari kerja.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Perbedaan ready stock dan custom",
+    content:
+      "Q: Apa bedanya ready stock dan custom?\nA: Ready stock = ukuran standar yang tersedia di gudang, bisa langsung kirim 1-3 hari kerja. Custom = ukuran khusus sesuai kebutuhan, estimasi 5-7 hari kerja. Untuk custom + sablon (cetak logo), estimasi juga 5-7 hari kerja. Waktu dihitung sejak data final dan pembayaran diterima.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Estimasi pengiriman detail",
+    content:
+      "Q: Berapa lama pengirimannya? / Kapan sampai?\nA: Untuk barang ready stock estimasi 1-3 hari kerja. Jika ada custom + sablon, estimasinya 5-7 hari kerja. Waktu dihitung sejak data final dan pembayaran kami terima. Jadwal pengantaran akan diinfokan oleh tim pengiriman kami sesuai ketersediaan supir & kurir 😊",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Ada minimal order berapa pcs?",
+    content:
+      "Q: Ada minimal? / Minimal berapa pcs? / Minimal order?\nA: Minimal order kami Rp 300.000 kak. Tidak ada minimal pcs, yang penting total pembelian mencapai Rp 300.000. Kalau mau pakai sablon (cetak logo), minimal 200 pcs karena harus bikin papan sablon baru. Mau pesan berapa pcs kak? 😊",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Mau pesan sedikit bisa?",
+    content:
+      "Q: Bisa beli satuan? / Beli sedikit bisa? / Mau beli 10 pcs aja\nA: Bisa kak, selama total pembelian mencapai minimal Rp 300.000 ya. Tidak ada batasan minimal pcs. Kakak mau pesan ukuran berapa dan berapa pcs?",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Stok ukuran tertentu",
+    content:
+      "Q: Ukuran X ada ga? / Ada stok ukuran ini?\nA: Kami punya 1000+ ukuran ready stock kak. Untuk cek ketersediaan ukuran spesifik, bisa langsung info ukuran P x L x T (cm) nya ya, nanti kami hitungkan harga sekaligus cek stok.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Cara ukur dus yang pas",
+    content:
+      "Q: Cara ukur dus gimana? / Ukurannya gimana?\nA: Ukuran dus ditulis dalam format P x L x T (Panjang x Lebar x Tinggi) dalam satuan centimeter (cm). Cara ukur: ukur dimensi terluar barang yang mau dimasukkan, lalu tambah 1-2 cm di setiap sisi untuk ruang gerak. Atau kirim foto produknya, nanti kami bantu rekomendasikan ukuran yang pas.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Beda model RSC dan Die-Cut",
+    content:
+      "Q: Apa beda dus indomie dan dus pizza? / Beda RSC dan die-cut?\nA: Dus Indomie (RSC) = model Regular Slotted Container, berbentuk kotak dengan tutup flap atas-bawah. Cocok untuk barang umum, pakaian, elektronik, dll. Dus Pizza (Die-Cut) = model tutup lepas/terpisah, cocok untuk makanan, kue, pizza, dll. Keduanya bisa custom ukuran.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Bisa COD / bayar di tempat?",
+    content:
+      "Q: Bisa COD? / Bayar di tempat bisa?\nA: Untuk saat ini pembayaran melalui link DOKU (bisa QRIS, e-wallet, atau kartu kredit) dan wajib full payment sebelum proses produksi ya kak. Tidak ada sistem COD. Tapi kalau mau pickup langsung di gudang kami di Kapuk, Jakarta Barat, tetap bayar dulu via link pembayaran ya kak.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Apakah bisa cetak full color?",
+    content:
+      "Q: Bisa cetak full color? / Print warna bisa?\nA: Untuk saat ini kami hanya melayani sablon (screen printing), jadi rekomendasi 1 warna per sisi ya kak. Kalau lebih dari 1 warna bisa tapi ada biaya tambahan Rp 500/warna/sisi. Untuk cetak full color / digital print belum tersedia.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Garansi / jaminan kualitas",
+    content:
+      "Q: Ada garansi? / Kalau rusak gimana?\nA: Kami menjamin kualitas produk sesuai spesifikasi yang dipesan. Jika ada kerusakan saat pengiriman atau produk tidak sesuai pesanan, silakan kirim foto/video buktinya dan kami akan proses penggantian atau solusi terbaik.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Apa saja yang dijual?",
+    content:
+      "Q: Jual apa aja? / Produknya apa?\nA: Kami menyediakan kardus / dus corrugated (kardus coklat) dengan 2 model: (1) Dus Indomie (RSC) - untuk kebutuhan umum, dan (2) Dus Pizza (Die-Cut) - model tutup lepas. Tersedia dalam 3 pilihan bahan: Singlewall (paling tipis), C-Flute (sedang), dan Doublewall (paling tebal/kuat). Semua bisa custom ukuran dan sablon logo 😊",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Bisa kirim hari ini / besok?",
+    content:
+      "Q: Bisa kirim hari ini? / Besok bisa sampai?\nA: Untuk pengiriman cepat tergantung ketersediaan stok dan jadwal supir kak. Kalau barang ready stock dan lokasi JABODETABEK, bisa kami usahakan. Info ukuran, qty, dan alamat lengkapnya ya kak, nanti kami cekkan.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Sudah termasuk ongkir?",
+    content:
+      "Q: Harga sudah termasuk ongkir? / Ongkir gratis?\nA: Untuk area Jakarta, gratis ongkir dengan minimal order Rp 300.000. Untuk Bodetabek, gratis ongkir dengan minimal order Rp 3 juta (di bawah itu flat rate Rp 100.000). Luar Jabodetabek via cargo, biaya menyesuaikan.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Jadwal pengantaran",
+    content:
+      "Q: Kapan diantar? / Jadwal kirimnya kapan?\nA: Jadwal pengantaran akan diinfokan oleh tim pengiriman kami sesuai ketersediaan supir & kurir ya kak. Setelah pembayaran dan data final diterima, barang langsung diproses.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Bisa pesan via WhatsApp saja?",
+    content:
+      "Q: Cara pesannya gimana? / Bisa pesan lewat WA?\nA: Bisa kak, langsung chat aja di sini! Tinggal info: (1) Ukuran P x L x T (cm), (2) Jumlah/quantity, (3) Pakai sablon atau tidak. Nanti kami hitungkan harga dan buatkan pesanannya langsung 😊",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Apakah tahan air / waterproof?",
+    content:
+      "Q: Apakah tahan air? / Waterproof ga?\nA: Kardus corrugated kami tidak waterproof ya kak. Kalau butuh proteksi dari air, bisa tambahkan plastik wrap atau lining di dalam dus. Bahannya tetap bersih dan kokoh untuk penggunaan normal.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Bisa lihat contoh dulu?",
+    content:
+      "Q: Bisa lihat contoh dulu? / Ada foto produknya?\nA: Bisa kak! Kami kirimkan foto katalog produk ya. Kalau mau lihat langsung, bisa juga ambil sample gratis di gudang kami di Kapuk, Jakarta Barat (Senin-Sabtu 08.00-17.00, Minggu 09.00-12.00). Mau kami kirim katalognya?",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Bisa custom warna kardus?",
+    content:
+      "Q: Bisa custom warna kardus? / Kardus putih ada?\nA: Untuk saat ini kami hanya menyediakan kardus coklat (kraft) ya kak. Tapi bisa ditambahkan sablon (cetak logo/tulisan) di permukaannya untuk branding.",
+  },
+  {
+    sourceType: "faq_knowledge",
+    title: "FAQ: Berapa harga per pcs?",
+    content:
+      "Q: Harganya berapa per pcs? / Satu dus berapa?\nA: Harga per pcs tergantung ukuran, model (Indomie/Pizza), dan bahan (Singlewall/C-Flute/Doublewall) kak. Semakin besar ukuran, semakin tinggi harganya. Info ukuran P x L x T yang kakak butuhkan, nanti kami hitungkan langsung ya 😊",
+  },
 ];
 
 async function embedBatch(texts: string[]): Promise<number[][]> {
