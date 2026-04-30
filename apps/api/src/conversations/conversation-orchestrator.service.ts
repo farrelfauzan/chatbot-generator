@@ -836,6 +836,12 @@ export class ConversationOrchestratorService {
             'itu saja',
             'itu doang',
             'sekian',
+            'order',
+            'langsung order',
+            'mau order',
+            'lanjut order',
+            'checkout',
+            'proses order',
           ];
           const isDone = DONE_WORDS.some(
             (w) => userText === w || userText.includes(w),
@@ -925,7 +931,6 @@ export class ConversationOrchestratorService {
             'confirm_order',
             'cancel_order',
             'view_cart',
-            'add_to_cart',
             'update_cart_item',
             'remove_from_cart',
             'get_payment_info',
