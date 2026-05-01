@@ -411,6 +411,15 @@ export class ConversationOrchestratorService {
     timeout: 60_000, // 60s hard timeout per request
   });
 
+  /**
+   * In-memory dedup for PIC notifications.
+   * Key: "phone:queryHash", Value: timestamp of last notification.
+   * Prevents flooding PIC when the same customer/query triggers
+   * search_knowledge repeatedly (e.g. during restarts or agent retries).
+   */
+  private readonly picNotifSent = new Map<string, number>();
+  private static readonly PIC_NOTIF_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
   constructor(
     private readonly customers: CustomersService,
     private readonly conversations: ConversationsService,
@@ -1653,23 +1662,25 @@ export class ConversationOrchestratorService {
           );
 
           if (results.length === 0) {
-            // No relevant results — notify PIC, but let LLM respond naturally
+            // No relevant results — notify PIC (deduplicated), let LLM respond naturally
             const customerName = customer.name || 'Customer';
-            await this.gowa.sendText(
-              PIC_PHONE,
+            await this.notifyPicOnce(
+              customer.phoneNumber,
+              query,
               `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nPertanyaan: "${query}"`,
             );
 
             return 'Tidak ditemukan informasi yang relevan di knowledge base. Balas customer: "Baik kak, kami cek dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
           }
 
-          // If top result has low similarity, knowledge is likely irrelevant — also notify PIC
+          // If top result has low similarity, knowledge is likely irrelevant — also notify PIC (deduplicated)
           const topSimilarity = results[0]?.similarity ?? 0;
           if (topSimilarity < 0.4) {
             const customerName = customer.name || 'Customer';
-            await this.gowa.sendText(
-              PIC_PHONE,
-              `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nPertanyaan: "${query}" (knowledge kurang relevan, similarity: ${topSimilarity.toFixed(2)})`,
+            await this.notifyPicOnce(
+              customer.phoneNumber,
+              query,
+              `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan.\nPertanyaan: "${query}"`,
             );
           }
 
@@ -1845,5 +1856,44 @@ export class ConversationOrchestratorService {
       this.logger.error(`Tool ${toolName} failed: ${err.message}`);
       return 'Maaf, terjadi kesalahan saat memproses. Silakan coba lagi.';
     }
+  }
+
+  /**
+   * Send a PIC notification only once per phone+query within the TTL window.
+   * Prevents flooding when the same search_knowledge query fires repeatedly
+   * (agent loop retries, restarts, duplicate webhook deliveries, etc.).
+   */
+  private async notifyPicOnce(
+    phone: string,
+    query: string,
+    message: string,
+  ): Promise<void> {
+    const key = `${phone}:${query.toLowerCase().trim()}`;
+    const now = Date.now();
+
+    // Evict expired entries lazily
+    const lastSent = this.picNotifSent.get(key);
+    if (
+      lastSent &&
+      now - lastSent < ConversationOrchestratorService.PIC_NOTIF_TTL_MS
+    ) {
+      this.logger.debug(
+        `PIC notification suppressed (dedup) for ${phone} query="${query}"`,
+      );
+      return;
+    }
+
+    this.picNotifSent.set(key, now);
+
+    // Periodically prune stale entries to avoid memory leak
+    if (this.picNotifSent.size > 500) {
+      for (const [k, ts] of this.picNotifSent) {
+        if (now - ts >= ConversationOrchestratorService.PIC_NOTIF_TTL_MS) {
+          this.picNotifSent.delete(k);
+        }
+      }
+    }
+
+    await this.gowa.sendText(PIC_PHONE, message);
   }
 }
