@@ -23,6 +23,7 @@ import { EmbeddingModule } from './embedding/embedding.module';
 import { VectorSearchModule } from './vector-search/vector-search.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { InvoiceModule } from './invoice/invoice.module';
+import { CsPhonesModule } from './cs-phones/cs-phones.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { InvoiceModule } from './invoice/invoice.module';
     IngestionModule,
     InvoiceModule,
     CatalogImagesModule,
+    CsPhonesModule,
     ConversationsModule,
     WebhooksModule,
   ],

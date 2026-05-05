@@ -16,6 +16,7 @@ import { DokuModule } from '../doku/doku.module';
 import { PromptTemplateModule } from '../prompt-templates/prompt-template.module';
 import { VectorSearchModule } from '../vector-search/vector-search.module';
 import { CustomerFilesModule } from '../customer-files/customer-files.module';
+import { CsPhonesModule } from '../cs-phones/cs-phones.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { CustomerFilesModule } from '../customer-files/customer-files.module';
     PromptTemplateModule,
     VectorSearchModule,
     CustomerFilesModule,
+    CsPhonesModule,
   ],
   controllers: [ConversationsController],
   providers: [

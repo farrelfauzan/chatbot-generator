@@ -9,6 +9,7 @@ import { OrdersService } from '../orders/orders.service';
 import { GowaService } from '../gowa/gowa.service';
 import { VectorSearchService } from '../vector-search/vector-search.service';
 import { CustomerFilesService } from '../customer-files/customer-files.service';
+import { CsPhonesService } from '../cs-phones/cs-phones.service';
 import {
   ChatSessionService,
   type CartItem,
@@ -396,7 +397,7 @@ const ORCHESTRATOR_SLUG = 'conversation-orchestrator';
 const FALLBACK_PROMPT = `You are a friendly WhatsApp sales assistant for Mader Packer, a cardboard box (dus/kardus) supplier located in Kapuk, Jakarta Barat.
 Respond in Indonesian. For ANY customer question, ALWAYS call search_knowledge first to get the answer from our knowledge base. Never answer from memory. Never make up prices or payment info.`;
 
-const PIC_PHONE = '6287822992838';
+const FALLBACK_PIC_PHONE = '6287822992838';
 
 const GREETING_TEMPLATE = (name: string) =>
   `Halo kak ${name} 👋 Kami *Mader Packer*, supplier dus custom di Kapuk, Jakarta Barat 📍\n\n2 jenis dus:\n1. *Dus Indomie* (RSC)\n2. *Dus Pizza* (die-cut)\n\n🚚 *FREE ONGKIR* se-Jabodetabek!\n\nAda yang bisa dibantu kak? 😊`;
@@ -433,6 +434,7 @@ export class ConversationOrchestratorService {
     private readonly promptTemplates: PromptTemplateService,
     private readonly vectorSearch: VectorSearchService,
     private readonly customerFiles: CustomerFilesService,
+    private readonly csPhones: CsPhonesService,
   ) {}
 
   async handleInboundMessage(payload: GowaInboundMessage): Promise<void> {
@@ -1747,8 +1749,9 @@ export class ConversationOrchestratorService {
         case 'escalate_to_admin': {
           const reason = args.reason || 'Customer minta bicara admin';
           const customerName = customer.name || 'Customer';
+          const csPhone = await this.pickCsPhone();
           await this.gowa.sendText(
-            PIC_PHONE,
+            csPhone,
             `⚠️ Customer ${customerName} (${customer.phoneNumber}) butuh bantuan admin.\nAlasan: ${reason}`,
           );
 
@@ -1789,8 +1792,9 @@ export class ConversationOrchestratorService {
             stage: 'bargaining',
           });
           const reason = `Customer nego harga. Total pesanan: ${this.formatRupiah(cartTotal)}, harga diminta: ${this.formatRupiah(requestedPrice)}`;
+          const bargainCsPhone = await this.pickCsPhone();
           await this.gowa.sendText(
-            PIC_PHONE,
+            bargainCsPhone,
             `⚠️ Customer ${customerName} (${customer.phoneNumber}) minta nego harga.\nTotal: ${this.formatRupiah(cartTotal)}\nHarga diminta: ${this.formatRupiah(requestedPrice)}\nAlasan: ${reason}`,
           );
 
@@ -1810,7 +1814,7 @@ export class ConversationOrchestratorService {
             : '\nTidak ada pesanan tercatat.';
 
           await this.gowa.sendText(
-            PIC_PHONE,
+            await this.pickCsPhone(),
             `🚨 KOMPLAIN dari ${customerName} (${customer.phoneNumber})\nKeluhan: ${complaint}${orderInfo}`,
           );
 
@@ -1829,7 +1833,7 @@ export class ConversationOrchestratorService {
             : '';
 
           await this.gowa.sendText(
-            PIC_PHONE,
+            await this.pickCsPhone(),
             `🚀 PENGIRIMAN CEPAT\nCustomer ${customerName} (${customer.phoneNumber}) minta pengiriman cepat: *${timeframe}*${orderInfo}`,
           );
 
@@ -1842,7 +1846,7 @@ export class ConversationOrchestratorService {
           const customerName = customer.name || 'Customer';
 
           await this.gowa.sendText(
-            PIC_PHONE,
+            await this.pickCsPhone(),
             `⚠️ BUTUH BANTUAN ADMIN\nCustomer ${customerName} (${customer.phoneNumber}) butuh penanganan langsung.\nMasalah: ${issue}`,
           );
 
@@ -1894,6 +1898,20 @@ export class ConversationOrchestratorService {
       }
     }
 
-    await this.gowa.sendText(PIC_PHONE, message);
+    const picPhone = await this.pickCsPhone();
+    await this.gowa.sendText(picPhone, message);
+  }
+
+  /**
+   * Get the CS phone with least load, falling back to FALLBACK_PIC_PHONE.
+   * Increments the load counter for the picked phone.
+   */
+  private async pickCsPhone(): Promise<string> {
+    const cs = await this.csPhones.pickLeastLoaded();
+    if (cs) {
+      await this.csPhones.recordEscalation(cs.id);
+      return cs.phone;
+    }
+    return FALLBACK_PIC_PHONE;
   }
 }
