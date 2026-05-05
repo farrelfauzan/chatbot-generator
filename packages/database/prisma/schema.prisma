@@ -225,3 +225,16 @@ enum MessageFlow {
   inbound
   outbound
 }
+
+// ─── CS Phones ───────────────────────────────────────
+
+model CsPhone {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  name        String
+  isActive    Boolean  @default(true)
+  loadCount   Int      @default(0)
+  lastEscalatedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
