@@ -6,7 +6,50 @@ export class GowaService {
   private readonly logger = new Logger(GowaService.name);
   private readonly baseUrl = appConfig.gowa.baseUrl;
   private readonly basicAuth = appConfig.gowa.basicAuth;
-  private readonly deviceId = appConfig.gowa.deviceId;
+  private deviceId = '';
+  private deviceIdFetched = false;
+
+  private async getDeviceId(): Promise<string> {
+    if (this.deviceIdFetched) return this.deviceId;
+    await this.fetchDeviceId();
+    return this.deviceId;
+  }
+
+  private async fetchDeviceId(): Promise<void> {
+    try {
+      const url = `${this.baseUrl}/devices`;
+      const res = await fetch(url, {
+        headers: {
+          ...(this.basicAuth
+            ? {
+                Authorization: `Basic ${Buffer.from(this.basicAuth).toString('base64')}`,
+              }
+            : {}),
+        },
+      });
+
+      if (!res.ok) {
+        this.logger.error(`Failed to fetch devices from GOWA: ${res.status}`);
+        return;
+      }
+
+      const data = (await res.json()) as {
+        results?: Array<{ id: string }>;
+      };
+
+      if (data.results && data.results.length > 0) {
+        this.deviceId = data.results[0].id;
+        this.deviceIdFetched = true;
+        this.logger.log(`Resolved GOWA device ID: ${this.deviceId}`);
+      } else {
+        this.logger.warn('No devices found in GOWA');
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to fetch device ID from GOWA: ${(err as Error).message}`,
+      );
+    }
+  }
 
   async sendText(phone: string, message: string): Promise<void> {
     await this.simulateTyping(phone, message);
@@ -40,10 +83,11 @@ export class GowaService {
     formData.append('file', new Blob([new Uint8Array(file)]), filename);
     if (caption) formData.append('caption', '');
 
+    const deviceId = await this.getDeviceId();
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        ...(this.deviceId ? { 'X-Device-Id': this.deviceId } : {}),
+        ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
         ...(this.basicAuth
           ? {
               Authorization: `Basic ${Buffer.from(this.basicAuth).toString('base64')}`,
@@ -106,11 +150,12 @@ export class GowaService {
 
     this.logger.debug(`GoWa → ${path} | phone=${(body as any).phone}`);
 
+    const deviceId = await this.getDeviceId();
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.deviceId ? { 'X-Device-Id': this.deviceId } : {}),
+        ...(deviceId ? { 'X-Device-Id': deviceId } : {}),
         ...(this.basicAuth
           ? {
               Authorization: `Basic ${Buffer.from(this.basicAuth).toString('base64')}`,
