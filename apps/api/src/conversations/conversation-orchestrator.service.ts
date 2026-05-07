@@ -485,47 +485,12 @@ export class ConversationOrchestratorService {
     // First greeting — deterministic reply + catalog image
     // But only if the message is a simple greeting (no actual product request)
     if (conversation.stage === 'greeting' && !priorConversationId) {
-      const msgLower = payload.message?.toLowerCase().trim() ?? '';
-      const GREETING_ONLY_WORDS = [
-        'halo',
-        'hai',
-        'hi',
-        'hey',
-        'hello',
-        'pagi',
-        'siang',
-        'sore',
-        'malam',
-        'selamat pagi',
-        'selamat siang',
-        'selamat sore',
-        'selamat malam',
-        'assalamualaikum',
-        'p',
-        'min',
-        'kak',
-        'bang',
-        'mas',
-        'mba',
-        'mbak',
-        'om',
-        'tante',
-      ];
-      const isGreetingOnly = GREETING_ONLY_WORDS.some(
-        (w) => msgLower === w || msgLower === w + '!' || msgLower === w + '.',
-      );
-
-      if (isGreetingOnly) {
-        await this.handleGreeting(conversation, customer, payload.phone);
-        return;
-      }
-
-      // Customer sent a real request as first message — send greeting + process via LLM
       await this.handleGreeting(conversation, customer, payload.phone);
-      // Don't return — fall through to LLM to also handle the actual request
+      // Always fall through to LLM — it will decide if there's anything to respond to
     }
 
     // Build LLM context and run agent loop
+    const greetingAlreadySent = conversation.stage === 'pricing';
     const chatMessages = await this.buildChatMessages(
       customer,
       conversation,
@@ -538,6 +503,15 @@ export class ConversationOrchestratorService {
       chatMessages.push({ role: 'system', content: mediaContext });
     }
 
+    // Prevent LLM from sending duplicate greeting
+    if (greetingAlreadySent) {
+      chatMessages.push({
+        role: 'system',
+        content:
+          '[SYSTEM: Greeting and catalog image have already been sent to the customer. Do NOT call send_catalog_images again. If the customer only sent a greeting with no actual request, reply with exactly "[NO_REPLY]". Otherwise, focus on answering their actual request.]',
+      });
+    }
+
     const pendingImages: { phone: string; url: string }[] = [];
     let reply = await this.runAgentLoop(
       chatMessages,
@@ -548,6 +522,12 @@ export class ConversationOrchestratorService {
     );
 
     reply = reply.replace(/\\n/g, '\n');
+
+    // If LLM determined there's nothing to add beyond the greeting, skip sending
+    if (reply.trim() === '[NO_REPLY]') {
+      return;
+    }
+
     await this.sendReply(conversation.id, payload.phone, reply, pendingImages);
   }
 
@@ -1231,7 +1211,7 @@ export class ConversationOrchestratorService {
             url: firstImage.imageUrl,
           });
 
-          return GREETING_TEMPLATE(customer.name || 'kakak');
+          return 'Ini katalog produk kami kak 📸';
         }
 
         case 'send_sablon_samples': {
