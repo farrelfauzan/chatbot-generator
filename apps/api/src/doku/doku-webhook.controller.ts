@@ -13,6 +13,7 @@ import { OrdersService } from '../orders/orders.service';
 import { GowaService } from '../gowa/gowa.service';
 import { PrismaService } from '../database/prisma.service';
 import { ChatSessionService } from '../chat-session/chat-session.service';
+import { appConfig } from '../app.config';
 import {
   InvoiceService,
   type InvoiceOrderData,
@@ -199,6 +200,9 @@ export class DokuWebhookController {
         );
       }
 
+      // 6. Store payment inside google sheets (only success payments)
+      await this.sendPaymentToDUSSheet(order);
+
       // End the chat session and close conversation — payment flow is complete
       await this.chatSession.deleteSession(order.customer.phoneNumber);
       if (order.conversationId) {
@@ -224,6 +228,88 @@ export class DokuWebhookController {
     }
 
     return { status: 'ok' };
+  }
+
+  private async sendPaymentToDUSSheet(order: any) {
+    const { baseUrl, username, password } = appConfig.n8n;
+    if (!baseUrl) {
+      this.logger.debug('N8N DUS webhook not configured; skipping sheet sync');
+      return;
+    }
+
+    let webhookUrl: string;
+    try {
+      webhookUrl = new URL('/webhook/dus', baseUrl).toString();
+    } catch (err) {
+      this.logger.error(`Invalid N8N base URL for DUS sheet sync: ${baseUrl}`);
+      return;
+    }
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    const quantity = items.reduce(
+      (sum: number, item: any) => sum + (Number(item.quantity) || 0),
+      0,
+    );
+    const orderDescription = this.buildDUSOrderDescription(order);
+
+    const payload = {
+      action: 'create',
+      data: {
+        'Nama Pembeli': order.customer?.name ?? 'Unknown',
+        'No HP Pembeli': order.customer?.phoneNumber ?? '',
+        Alamat: order.recipientAddress ?? '',
+        Order: orderDescription,
+        Jumlah: quantity,
+        Harga: Number(order.totalAmount),
+        Status: 'Paid',
+      },
+    };
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (username && password) {
+      headers.Authorization = `Basic ${Buffer.from(
+        `${username}:${password}`,
+      ).toString('base64')}`;
+    }
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const bodyText = await res.text();
+      if (!res.ok) {
+        this.logger.warn(
+          `Failed to sync order ${order.orderNumber} to DUS sheet: HTTP ${res.status} ${bodyText}`,
+        );
+        return;
+      }
+
+      this.logger.log(
+        `DUS sheet sync succeeded for order ${order.orderNumber}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Error syncing order ${order.orderNumber} to DUS sheet: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  private buildDUSOrderDescription(order: any): string {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemLines = items.map((item: any) => {
+      const quantity = Number(item.quantity) || 0;
+      return `${quantity}× ${item.productNameSnapshot}`.trim();
+    });
+
+    const description = itemLines.filter(Boolean).join(' | ');
+    return description
+      ? `#${order.orderNumber}: ${description}`
+      : `Order ${order.orderNumber}`;
   }
 
   private formatChannelName(channelId: string): string {

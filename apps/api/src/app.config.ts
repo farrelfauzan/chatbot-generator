@@ -41,4 +41,9 @@ export const appConfig = {
     baseUrl: process.env.DOKU_BASE_URL ?? 'https://api-sandbox.doku.com',
     notificationUrl: process.env.DOKU_NOTIFICATION_URL ?? '',
   },
+  n8n: {
+    baseUrl: process.env.N8N_BASE_URL ?? '',
+    username: process.env.N8N_WEBHOOK_USERNAME ?? '',
+    password: process.env.N8N_WEBHOOK_PASSWORD ?? '',
+  },
 };
