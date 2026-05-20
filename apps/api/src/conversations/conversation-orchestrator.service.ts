@@ -486,6 +486,8 @@ export class ConversationOrchestratorService {
     // But only if the message is a simple greeting (no actual product request)
     if (conversation.stage === 'greeting' && !priorConversationId) {
       await this.handleGreeting(conversation, customer, payload.phone);
+      // Keep local state in sync so duplicate-greeting guard applies in this run.
+      conversation.stage = 'pricing';
       // Always fall through to LLM — it will decide if there's anything to respond to
     }
 
