@@ -13,6 +13,10 @@ const DEBOUNCE_DELAY_MS = 120_000;
 /** Max time a message can sit in the buffer (ms). Safety cap. */
 const MAX_BUFFER_AGE_MS = 150_000;
 
+/** Keep Redis buffer keys alive longer than the debounce window. */
+const BUFFER_TTL_SECONDS =
+  Math.ceil(Math.max(DEBOUNCE_DELAY_MS, MAX_BUFFER_AGE_MS) / 1000) + 30;
+
 /** Redis key prefix for the message buffer list. */
 const BUFFER_PREFIX = 'msgbuf:';
 
@@ -40,11 +44,17 @@ export class MessageBufferService {
 
     // Append message to the per-phone Redis list
     await this.redis.rpush(bufferKey, JSON.stringify(message));
-    // Expire after 60s as a safety net
-    await this.redis.expire(bufferKey, 60);
+    // Keep the list alive beyond the debounce window so delayed jobs can drain it.
+    await this.redis.expire(bufferKey, BUFFER_TTL_SECONDS);
 
     // Track when the first message arrived (only set if not exists)
-    await this.redis.set(startKey, Date.now().toString(), 'EX', 60, 'NX');
+    await this.redis.set(
+      startKey,
+      Date.now().toString(),
+      'EX',
+      BUFFER_TTL_SECONDS,
+      'NX',
+    );
 
     // Check if we've been buffering too long (safety cap)
     const startStr = await this.redis.get(startKey);
