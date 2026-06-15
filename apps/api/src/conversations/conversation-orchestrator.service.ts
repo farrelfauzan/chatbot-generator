@@ -523,6 +523,7 @@ export class ConversationOrchestratorService {
       8,
       pendingImages,
       excludeTools,
+      greetingAlreadySent,
     );
 
     reply = reply.replace(/\\n/g, '\n');
@@ -779,6 +780,7 @@ export class ConversationOrchestratorService {
     maxIterations = 8,
     pendingImages: { phone: string; url: string }[] = [],
     excludeTools: string[] = [],
+    greetingAlreadySent = false,
   ): Promise<string> {
     const activeTools = excludeTools.length
       ? TOOLS.filter((t) => !excludeTools.includes(t.function.name))
@@ -904,7 +906,9 @@ export class ConversationOrchestratorService {
           toolChoice = 'auto';
         }
       } else if (nullCount >= 2) {
-        toolChoice = 'required';
+        // Force text response — do NOT use 'required' here as it makes the LLM
+        // pick an arbitrary tool when it has nothing meaningful to do.
+        toolChoice = 'none';
       }
 
       let completion: OpenAI.ChatCompletion;
@@ -1088,9 +1092,14 @@ export class ConversationOrchestratorService {
       // If LLM returned nothing (null content, no tool calls), retry the same call
       // with higher temperature instead of polluting context with nudge messages
       if (!finalReply && i < maxIterations - 1) {
+        // If greeting was already sent and LLM has nothing to say, the customer
+        // only greeted us — no follow-up needed.
+        if (greetingAlreadySent) {
+          return '[NO_REPLY]';
+        }
         nullCount++;
         this.logger.warn(
-          `LLM returned empty on iteration ${i}, retrying (nullCount=${nullCount}, tool_choice=${nullCount >= 2 ? 'required' : 'auto'})`,
+          `LLM returned empty on iteration ${i}, retrying (nullCount=${nullCount}, tool_choice=${nullCount >= 2 ? 'none' : 'auto'})`,
         );
         continue;
       }
