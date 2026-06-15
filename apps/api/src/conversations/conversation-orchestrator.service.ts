@@ -515,12 +515,14 @@ export class ConversationOrchestratorService {
     }
 
     const pendingImages: { phone: string; url: string }[] = [];
+    const excludeTools = greetingAlreadySent ? ['send_catalog_images'] : [];
     let reply = await this.runAgentLoop(
       chatMessages,
       customer,
       conversation,
       8,
       pendingImages,
+      excludeTools,
     );
 
     reply = reply.replace(/\\n/g, '\n');
@@ -776,7 +778,11 @@ export class ConversationOrchestratorService {
     conversation: any,
     maxIterations = 8,
     pendingImages: { phone: string; url: string }[] = [],
+    excludeTools: string[] = [],
   ): Promise<string> {
+    const activeTools = excludeTools.length
+      ? TOOLS.filter((t) => !excludeTools.includes(t.function.name))
+      : TOOLS;
     let lastToolResult: string | null = null;
 
     let nullCount = 0;
@@ -906,7 +912,7 @@ export class ConversationOrchestratorService {
         completion = await this.openai.chat.completions.create({
           model: appConfig.llm.model,
           messages,
-          tools: TOOLS,
+          tools: activeTools,
           tool_choice: toolChoice,
           max_tokens: appConfig.llm.maxTokens,
           temperature: appConfig.llm.temperature,
