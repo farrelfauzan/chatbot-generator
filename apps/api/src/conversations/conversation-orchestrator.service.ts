@@ -892,11 +892,10 @@ export class ConversationOrchestratorService {
           // Customer is providing recipient info, let LLM decide (confirm_order when all info collected)
           toolChoice = 'required';
         } else {
-          // For general questions, force search_knowledge specifically
-          toolChoice = {
-            type: 'function',
-            function: { name: 'search_knowledge' },
-          };
+          // For general questions, let the LLM decide which tool to use.
+          // Forcing search_knowledge here caused every message (including greetings)
+          // to trigger admin notifications when similarity was low.
+          toolChoice = 'auto';
         }
       } else if (nullCount >= 2) {
         toolChoice = 'required';
@@ -1657,9 +1656,10 @@ export class ConversationOrchestratorService {
             return 'Tidak ditemukan informasi yang relevan di knowledge base. Balas customer: "Baik kak, kami cek dulu dengan tim ya. Nanti dibalas secepatnya 🙏"';
           }
 
-          // If top result has low similarity, knowledge is likely irrelevant — also notify PIC (deduplicated)
+          // If top result has very low similarity, knowledge is likely irrelevant — also notify PIC (deduplicated)
+          // Threshold is intentionally low (0.25) to avoid false positives on common product questions.
           const topSimilarity = results[0]?.similarity ?? 0;
-          if (topSimilarity < 0.4) {
+          if (topSimilarity < 0.25) {
             const customerName = customer.name || 'Customer';
             await this.notifyPicOnce(
               customer.phoneNumber,
