@@ -40,6 +40,8 @@ export class DokuService {
         amount: params.amount,
         invoice_number: params.orderId,
         currency: 'IDR',
+        callback_url: appConfig.doku.notificationUrl || undefined,
+        failed_url: appConfig.doku.notificationUrl || undefined,
       },
       payment: {
         payment_due_date: params.expiryMinutes ?? 60,
