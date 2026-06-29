@@ -1144,6 +1144,8 @@ export class ConversationOrchestratorService {
           if (type === 'dus_pizza') {
             const pricePerPcs = calculatePrice(type, p, l, t);
             const sheet = calculatePizzaSheet(p, l, t);
+            const sablonPerPcs = sablonSides * 500;
+            const totalPerPcs = pricePerPcs + sablonPerPcs;
 
             if (quantity) {
               const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
@@ -1163,7 +1165,11 @@ export class ConversationOrchestratorService {
               return result.join('\n');
             }
 
-            return `🍕 *Dus Pizza* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(pricePerPcs)}/pcs*\n\nMau pesan berapa pcs kak?`;
+            let response = `🍕 *Dus Pizza* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(totalPerPcs)}/pcs*`;
+            if (sablonSides > 0) {
+              response += `\nSablon ${sablonSides} sisi: +${this.formatRupiah(sablonPerPcs)}/pcs`;
+            }
+            return `${response}\n\nMau pesan berapa pcs kak?`;
           }
 
           // dus_baru
@@ -1193,6 +1199,8 @@ export class ConversationOrchestratorService {
           // Specific material (defaults to singlewall)
           const material = materialRaw as Material;
           const pricePerPcs = calculatePrice(type, p, l, t, material);
+          const sablonPerPcs = sablonSides * 500;
+          const totalPerPcs = pricePerPcs + sablonPerPcs;
 
           if (quantity) {
             const totals = calculateTotal(pricePerPcs, quantity, sablonSides);
@@ -1212,7 +1220,11 @@ export class ConversationOrchestratorService {
             return result.join('\n');
           }
 
-          return `📦 *Dus Indomie — ${materialLabels[material]}* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(pricePerPcs)}/pcs*\n\nMau pesan berapa pcs kak?`;
+          let response = `📦 *Dus Indomie — ${materialLabels[material]}* ${p}×${l}×${t} cm\nHarga: *${this.formatRupiah(totalPerPcs)}/pcs*`;
+          if (sablonSides > 0) {
+            response += `\nSablon ${sablonSides} sisi: +${this.formatRupiah(sablonPerPcs)}/pcs`;
+          }
+          return `${response}\n\nMau pesan berapa pcs kak?`;
         }
 
         case 'send_catalog_images': {

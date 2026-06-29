@@ -8,7 +8,7 @@ import type { GowaInboundMessage } from '@chatbot-generator/shared-types';
 export const MESSAGE_DEBOUNCE_QUEUE = 'message-debounce';
 
 /** How long to wait for more bubbles before processing (ms). */
-const DEBOUNCE_DELAY_MS = 120_000;
+const DEBOUNCE_DELAY_MS = 10_000;
 
 /** Max time a message can sit in the buffer (ms). Safety cap. */
 const MAX_BUFFER_AGE_MS = 150_000;
